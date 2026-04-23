@@ -65,12 +65,31 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| UPLOAD-01 to UPLOAD-05 | Phase 3 | Pending |
-| CONFIG-01 to CONFIG-05 | Phase 2 | Pending |
-| MODEL-01 to MODEL-05 | Phase 2 | Pending |
-| VIZ-01 to VIZ-05 | Phase 4 | Pending |
-| METRICS-01 to METRICS-03 | Phase 4 | Pending |
-| EXPORT-01 to EXPORT-02 | Phase 4 | Pending |
+| MODEL-01 | Phase 1 | Pending |
+| MODEL-02 | Phase 1 | Pending |
+| UPLOAD-02 | Phase 2 | Pending |
+| UPLOAD-03 | Phase 2 | Pending |
+| UPLOAD-04 | Phase 2 | Pending |
+| UPLOAD-05 | Phase 2 | Pending |
+| MODEL-03 | Phase 2 | Pending |
+| MODEL-04 | Phase 2 | Pending |
+| MODEL-05 | Phase 2 | Pending |
+| CONFIG-01 | Phase 2 | Pending |
+| CONFIG-02 | Phase 2 | Pending |
+| CONFIG-03 | Phase 2 | Pending |
+| CONFIG-04 | Phase 2 | Pending |
+| CONFIG-05 | Phase 2 | Pending |
+| UPLOAD-01 | Phase 3 | Pending |
+| VIZ-01 | Phase 3 | Pending |
+| VIZ-02 | Phase 3 | Pending |
+| VIZ-03 | Phase 3 | Pending |
+| VIZ-04 | Phase 3 | Pending |
+| VIZ-05 | Phase 3 | Pending |
+| METRICS-01 | Phase 3 | Pending |
+| METRICS-02 | Phase 3 | Pending |
+| METRICS-03 | Phase 3 | Pending |
+| EXPORT-01 | Phase 3 | Pending |
+| EXPORT-02 | Phase 3 | Pending |
 
 ---
 *Last updated: 2026-04-23 after requirements definition*
