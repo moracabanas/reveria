@@ -39,12 +39,7 @@ Upload any time series CSV and get a Reverso-powered forecast in seconds with fu
 - Zero-shot forecasting capability (no training required)
 - Sizes: Reverso-Nano (200K), Reverso-Small (550K), Reverso (2.6M params)
 - Input: normalized [0,1] sequences, output: predicted future points
-- Requires CUDA-compatible GPU for inference
-
-**Technical Stack:**
-- Frontend: shadcn (React/Next.js) with D3.js
-- Backend: FastAPI microservice with uv package manager
-- Deployment: Docker containers
+- CPU inference supported (GPU optional for faster inference)
 
 **CSV Handling:**
 - Mixed signal types (financial, sensor, energy, etc.)
@@ -54,7 +49,7 @@ Upload any time series CSV and get a Reverso-powered forecast in seconds with fu
 ## Constraints
 
 - **Tech Stack**: shadcn frontend, FastAPI backend, uv for Python dependencies — as specified
-- **GPU Required**: Reverso inference needs CUDA-compatible GPU — not a CPU-only tool
+- **CPU-Only**: Reverso inference runs on CPU (GPU support optional for future)
 - **Scale**: Must handle 50K+ point signals efficiently
 - **Language**: Implementation in English, user communicates in Spanish
 
@@ -67,7 +62,8 @@ Upload any time series CSV and get a Reverso-powered forecast in seconds with fu
 | Zero-shot only | Reverso is foundation model — no training needed | — Pending |
 | Large dataset support | User works with 50K+ point signals | — Pending |
 | Manual column mapping fallback | CSV formats vary — can't always auto-detect | — Pending |
+| CPU-only inference | Initial deployment targets CPU execution | — Pending |
 
 ---
 
-*Last updated: 2026-04-23 after initialization*
+*Last updated: 2026-04-23 after CPU-only clarification*

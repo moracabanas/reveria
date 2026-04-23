@@ -11,7 +11,7 @@
 
 ### Phase 1: Foundation
 
-**Goal**: FastAPI project with GPU detection and model loading infrastructure
+**Goal**: FastAPI project with model loading infrastructure (CPU mode)
 
 **Depends on**: Nothing (first phase)
 
@@ -19,10 +19,8 @@
 
 **Success Criteria** (what must be TRUE):
 1. FastAPI application starts without errors
-2. System detects GPU availability and reports status clearly
-3. System loads Reverso model at startup when GPU is available
-4. System shows clear error message when GPU/CUDA is unavailable
-5. API responds to health check endpoint
+2. System loads Reverso model at startup on CPU
+3. API responds to health check endpoint
 
 **Plans**: TBD
 
@@ -83,16 +81,16 @@
 
 ### Phase 4: Docker & Integration
 
-**Goal**: Containerized deployment with GPU support and end-to-end validation
+**Goal**: Containerized deployment and end-to-end validation
 
 **Depends on**: Phase 3
 
 **Requirements**: Implicit (deployment infrastructure)
 
 **Success Criteria** (what must be TRUE):
-1. Backend runs in Docker container with CUDA/GPU support
+1. Backend runs in Docker container
 2. Frontend runs in Docker container with multi-stage build
-3. docker-compose.yml orchestrates services with GPU device reservation
+3. docker-compose.yml orchestrates services
 4. End-to-end prediction flow works from within containers
 
 **Plans**: TBD
