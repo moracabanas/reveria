@@ -22,7 +22,11 @@
 2. System loads Reverso model at startup on CPU
 3. API responds to health check endpoint
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Project scaffolding, model loading infrastructure
+- [ ] 01-02-PLAN.md — Unit tests for model loader and health endpoint
 
 **UI hint**: no
 
@@ -103,7 +107,7 @@
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation | 0/5 | Not started | - |
+| 1. Foundation | 0/2 | Ready to execute | - |
 | 2. Prediction Pipeline | 0/9 | Not started | - |
 | 3. Frontend | 0/10 | Not started | - |
 | 4. Docker & Integration | 0/4 | Not started | - |
