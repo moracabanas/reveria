@@ -1,206 +1,187 @@
-"""Reverso model loading with GPU/CPU detection.
+"""Darts model serving layer with TimesFM2p5Model.
 
-This module provides model loading infrastructure for the Reverso Signal Dashboard.
-It detects GPU availability and falls back to CPU if CUDA is not available.
+This module provides model loading infrastructure using the darts library's
+foundation model API. TimesFM2p5Model from Google is CPU-friendly and provides
+zero-shot forecasting without requiring training.
+
+The darts library provides a unified API for multiple foundation models
+(TimesFM, Chronos, with Reverso later), making it easy to swap models.
 """
 
 import logging
-import os
-import tempfile
-from pathlib import Path
 from typing import Optional
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
-# Try to import torch - may not be available on all platforms
+# Try to import darts components
 try:
-    import torch
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
-    torch = None
+    from darts.models import TimesFM2p5Model
+    from darts import TimeSeries
 
-# Hugging Face model ID for Reverso
-REVERSO_MODEL_ID = "shinfxh/reverso"
-CHECKPOINT_DIR = "checkpoints/reverso_small"
+    DARTS_AVAILABLE = True
+except ImportError as import_error:
+    DARTS_AVAILABLE = False
+    darts_import_error = import_error
+    TimesFM2p5Model = None
+    TimeSeries = None
+    logger.warning(
+        f"Darts not available: {import_error}. "
+        "Install with: pip install darts[torch]"
+    )
 
 
-class ReversoModel:
-    """Reverso model wrapper with device detection.
+class DartsModel:
+    """TimesFM2p5Model wrapper using darts unified API.
 
-    This class handles model loading and device selection (GPU/CPU).
-    Uses Moirai/uni2ts pattern as reference since Reverso returns 404.
+    This class provides a simplified interface to Google's TimesFM 2.5 model
+    through the darts library. It handles model loading and prediction.
 
     Attributes:
-        device: The device the model is loaded on ("cuda" or "cpu")
-        model_size: Size variant of the model ("nano", "small", "base")
-        model: The underlying model instance (or None if not loaded)
+        input_chunk_length: Number of time steps in the past for model input
+        output_chunk_length: Number of time steps predicted at once
+        model: The underlying darts TimesFM2p5Model instance (or None if not loaded)
     """
 
     def __init__(
         self,
-        model_size: str = "small",
-        device: Optional[str] = None,
+        input_chunk_length: int = 64,
+        output_chunk_length: int = 32,
     ):
-        """Initialize the Reverso model.
+        """Initialize the DartsModel with TimesFM2p5Model.
 
         Args:
-            model_size: Size variant - "nano" (200K), "small" (550K), or "base" (2.6M)
-            device: Target device ("cuda", "cpu", or None for auto-detect)
+            input_chunk_length: Number of past time steps as model input.
+                Must be <= 16384 (TimesFM context limit).
+            output_chunk_length: Number of future time steps predicted at once.
+                Must be <= 128 (TimesFM output patch size).
         """
-        self.model_size = model_size
-        self.device = self._detect_device(device)
+        self.input_chunk_length = input_chunk_length
+        self.output_chunk_length = output_chunk_length
         self.model = None
+        self._training_series = None
 
-        logger.info(f"ReversoModel initialized: size={model_size}, device={self.device}")
-
-    def _detect_device(self, device: Optional[str]) -> str:
-        """Detect and select the appropriate device.
-
-        Args:
-            device: Requested device or None for auto-detect
-
-        Returns:
-            Selected device string ("cuda" or "cpu")
-        """
-        if device is not None:
-            return device
-
-        if not TORCH_AVAILABLE:
-            logger.warning("PyTorch not available - using CPU only")
-            return "cpu"
-
-        if torch.cuda.is_available():
-            device_name = torch.cuda.get_device_name(0)
-            logger.info(f"CUDA available - using GPU: {device_name}")
-            return "cuda"
-
-        logger.warning("CUDA unavailable - using CPU")
-        return "cpu"
+        logger.info(
+            f"DartsModel initialized: input_chunk={input_chunk_length}, "
+            f"output_chunk={output_chunk_length}"
+        )
 
     def load(self) -> None:
-        """Load the model onto the selected device.
+        """Load the TimesFM2p5Model from darts.
 
-        This method loads the Reverso model from Hugging Face checkpoint.
-        Downloads checkpoint files if not cached, then loads using Reverso's load_model.
+        For foundation models like TimesFM, the model checkpoint is automatically
+        downloaded from HuggingFace on first use. This method initializes the
+        model but doesn't require explicit loading since darts handles it lazily.
 
         Raises:
-            RuntimeError: If model loading fails completely
+            RuntimeError: If model loading fails
         """
-        if not TORCH_AVAILABLE:
+        if not DARTS_AVAILABLE:
             logger.warning(
-                "PyTorch not available - model loading skipped. "
-                "Install torch for actual model support: pip install torch"
+                "Darts not available - cannot load TimesFM2p5Model. "
+                f"Error: {darts_import_error}"
             )
             self.model = None
             return
 
         try:
-            logger.info(f"Loading Reverso-{self.model_size} on {self.device}")
-
-            # Attempt to import Reverso and huggingface_hub
-            try:
-                from huggingface_hub import snapshot_download
-                from reverso import load_model
-                REVERSO_AVAILABLE = True
-            except ImportError as import_error:
-                REVERSO_AVAILABLE = False
-                reverso_import_error = import_error
-                logger.warning(
-                    f"Reverso package not available: {import_error}. "
-                    "Install with: pip install -e git+https://github.com/SalesforceAIResearch/Reverso.git"
-                )
-
-            if not REVERSO_AVAILABLE:
-                # Fall back to stub - Reverso dependencies not installed
-                logger.warning(
-                    "Reverso not installed - using stub model. "
-                    "For actual model loading: pip install -e git+https://github.com/SalesforceAIResearch/Reverso.git"
-                )
-                self.model = {"loaded": True, "device": self.device, "stub": True}
-                return
-
-            # Download checkpoint from Hugging Face if not cached
-            logger.info(f"Downloading Reverso checkpoint from Hugging Face: {REVERSO_MODEL_ID}")
-            try:
-                repo_path = snapshot_download(
-                    repo_id=REVERSO_MODEL_ID,
-                    allow_patterns=[f"{CHECKPOINT_DIR}/**"],
-                )
-                checkpoint_dir = Path(repo_path) / CHECKPOINT_DIR
-                checkpoint_path = checkpoint_dir / "checkpoint.pth"
-                args_path = checkpoint_dir / "args.json"
-
-                if not checkpoint_path.exists():
-                    raise FileNotFoundError(
-                        f"Checkpoint not found at {checkpoint_path}. "
-                        f"Available files in {checkpoint_dir}: {list(checkpoint_dir.iterdir()) if checkpoint_dir.exists() else 'directory does not exist'}"
-                    )
-                if not args_path.exists():
-                    raise FileNotFoundError(f"Args file not found at {args_path}")
-
-                logger.info(f"Checkpoint downloaded to {checkpoint_path}")
-            except Exception as download_error:
-                logger.warning(
-                    f"Failed to download checkpoint: {download_error}. "
-                    "Using stub model. Check network connectivity and HuggingFace authentication."
-                )
-                self.model = {"loaded": True, "device": self.device, "stub": True}
-                return
-
-            # Load the actual Reverso model
-            try:
-                logger.info(f"Loading Reverso model from {checkpoint_path} on {self.device}")
-                self.model = load_model(
-                    checkpoint_path=str(checkpoint_path),
-                    args_path=str(args_path),
-                    device=self.device,
-                )
-                logger.info(f"Reverso-{self.model_size} model loaded successfully on {self.device}")
-            except Exception as model_error:
-                error_msg = str(model_error)
-                if "cuda" in error_msg.lower() or "gpu" in error_msg.lower() or "out of memory" in error_msg.lower():
-                    logger.warning(f"GPU loading failed: {error_msg}. Falling back to CPU.")
-                    self.device = "cpu"
-                    try:
-                        self.model = load_model(
-                            checkpoint_path=str(checkpoint_path),
-                            args_path=str(args_path),
-                            device="cpu",
-                        )
-                        logger.info("Model loaded successfully on CPU")
-                    except Exception as cpu_error:
-                        raise RuntimeError(
-                            f"Failed to load Reverso model on CPU: {cpu_error}"
-                        ) from cpu_error
-                else:
-                    raise RuntimeError(
-                        f"Failed to load Reverso model: {error_msg}"
-                    ) from model_error
-
-        except RuntimeError:
-            raise
+            logger.info("Loading TimesFM2p5Model via darts...")
+            self.model = TimesFM2p5Model(
+                input_chunk_length=self.input_chunk_length,
+                output_chunk_length=self.output_chunk_length,
+            )
+            logger.info("TimesFM2p5Model loaded successfully")
         except Exception as e:
-            raise RuntimeError(
-                f"Unexpected error loading Reverso model: {e}"
-            ) from e
+            logger.error(f"Failed to load TimesFM2p5Model: {e}")
+            self.model = None
+            raise RuntimeError(f"Failed to load TimesFM2p5Model: {e}") from e
+
+    def fit(self, input_series: np.ndarray) -> None:
+        """Fit the model on the input time series.
+
+        TimesFM is a foundation model that performs zero-shot forecasting,
+        but darts requires calling fit() to prepare the model for prediction.
+
+        Args:
+            input_series: numpy array of time series values
+
+        Raises:
+            RuntimeError: If fitting fails
+        """
+        if not DARTS_AVAILABLE:
+            raise RuntimeError("Darts not available - cannot fit model")
+
+        if self.model is None:
+            self.load()
+
+        try:
+            # Convert numpy array to darts TimeSeries
+            if isinstance(input_series, np.ndarray):
+                series = TimeSeries.from_values(input_series)
+            else:
+                series = input_series
+
+            logger.info(f"Fitting TimesFM2p5Model on series of length {len(input_series)}")
+            self.model.fit(series)
+            self._training_series = series
+            logger.info("Model fit completed")
+        except Exception as e:
+            logger.error(f"Failed to fit model: {e}")
+            raise RuntimeError(f"Failed to fit model: {e}") from e
+
+    def predict(self, n: int) -> np.ndarray:
+        """Generate predictions for n future time steps.
+
+        Args:
+            n: Number of future time steps to predict
+
+        Returns:
+            numpy array of predicted values
+
+        Raises:
+            RuntimeError: If prediction fails
+        """
+        if self.model is None:
+            raise RuntimeError("Model not loaded - call load() or fit() first")
+
+        try:
+            logger.info(f"Generating {n} predictions...")
+            prediction = self.model.predict(n=n)
+            # Extract numpy values from prediction
+            pred_values = prediction.values().flatten()
+            logger.info(f"Prediction completed: shape={pred_values.shape}")
+            return pred_values
+        except Exception as e:
+            logger.error(f"Prediction failed: {e}")
+            raise RuntimeError(f"Prediction failed: {e}") from e
 
 
-async def load_model(model_size: str = "small") -> ReversoModel:
-    """Load the Reverso model during FastAPI startup.
+async def load_model(
+    input_chunk_length: int = 64,
+    output_chunk_length: int = 32,
+) -> DartsModel:
+    """Load the TimesFM2p5Model during FastAPI startup.
 
     This async function is called during the application lifespan
     to load the model before handling requests.
 
     Args:
-        model_size: Size variant of the model to load
+        input_chunk_length: Number of past time steps as model input
+        output_chunk_length: Number of future time steps predicted at once
 
     Returns:
-        Loaded ReversoModel instance
+        Loaded DartsModel instance
     """
-    logger.info(f"Loading Reverso model (size={model_size})...")
+    logger.info(
+        f"Loading TimesFM2p5Model (input_chunk={input_chunk_length}, "
+        f"output_chunk={output_chunk_length})..."
+    )
 
-    model = ReversoModel(model_size=model_size)
+    model = DartsModel(
+        input_chunk_length=input_chunk_length,
+        output_chunk_length=output_chunk_length,
+    )
     model.load()
 
     return model
