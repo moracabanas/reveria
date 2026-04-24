@@ -22,11 +22,12 @@
 2. System loads Reverso model at startup on CPU
 3. API responds to health check endpoint
 
-**Plans**: 2 plans
+**Plans**: 3 plans
 
 Plans:
 - [x] 01-01-PLAN.md — Project scaffolding, model loading infrastructure
 - [x] 01-02-PLAN.md — Unit tests for model loader and health endpoint
+- [ ] 01-03-PLAN.md — Reimplement model serving using darts library (TimesFM)
 
 **UI hint**: no
 
