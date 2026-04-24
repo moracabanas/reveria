@@ -12,6 +12,7 @@ import logging
 from typing import Optional
 
 import numpy as np
+import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,7 @@ class DartsModel:
         but darts requires calling fit() to prepare the model for prediction.
 
         Args:
-            input_series: numpy array of time series values
+            input_series: numpy array or pandas Series of time series values
 
         Raises:
             RuntimeError: If fitting fails
@@ -116,11 +117,13 @@ class DartsModel:
             self.load()
 
         try:
-            # Convert numpy array to darts TimeSeries
+            # Convert to darts TimeSeries
             if isinstance(input_series, np.ndarray):
                 series = TimeSeries.from_values(input_series)
+            elif isinstance(input_series, pd.Series):
+                series = TimeSeries.from_series(input_series)
             else:
-                series = input_series
+                series = input_series  # Assume already a TimeSeries
 
             logger.info(f"Fitting TimesFM2p5Model on series of length {len(input_series)}")
             self.model.fit(series)

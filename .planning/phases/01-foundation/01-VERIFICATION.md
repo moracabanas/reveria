@@ -1,31 +1,59 @@
 ---
 phase: 01-foundation
-verified: 2026-04-24T12:00:00Z
-status: passed
-score: 6/6 must-haves verified
+verified: 2026-04-24T12:30:00Z
+status: gaps_found
+score: 0/3 must-haves verified
 overrides_applied: 0
 re_verification: true
 
-gaps: []
+gaps:
+  - truth: "FastAPI application starts without errors"
+    status: failed
+    reason: "darts dependency cannot be installed - llvmlite build fails with LLVM version mismatch (system has LLVM 22, llvmlite 0.47.0 requires LLVM 20)"
+    artifacts:
+      - path: "backend/pyproject.toml"
+        issue: "darts>=0.35.0 is a required dependency but cannot be built on this system"
+      - path: "backend/uv.lock"
+        issue: "Lock file reflects dependency that cannot be installed"
+    missing:
+      - "Working darts installation OR alternative model library that doesn't require llvmlite"
+      - "Or darts should be made optional with stub fallback for CPU-only systems"
+
+  - truth: "API responds to health check endpoint"
+    status: failed
+    reason: "Cannot start FastAPI app due to darts dependency failure"
+    artifacts:
+      - path: "backend/app/main.py"
+        issue: "Cannot import - uv sync fails before dependencies resolve"
+    missing:
+      - "Working dependency resolution"
+
+  - truth: "Model loading infrastructure is in place"
+    status: failed
+    reason: "main.py imports ReversoModel but model_loader.py exports DartsModel - import mismatch"
+    artifacts:
+      - path: "backend/app/main.py"
+        issue: "Line 11 imports 'ReversoModel' but model_loader.py exports 'DartsModel'"
+      - path: "backend/app/model_loader.py"
+        issue: "Exports DartsModel class, not ReversoModel - main.py not updated after darts reimplementation"
+    missing:
+      - "main.py needs to be updated to import DartsModel instead of ReversoModel"
+      - "Or model_loader.py needs to export ReversoModel as alias for DartsModel"
 
 deferred: []
 
 human_verification: []
 
-fixes_applied:
-  - gap: "MODEL-01: Actual Reverso model loading stub"
-    date: "2026-04-24T00:00:00Z"
-    commit: "d452403"
-    description: "Implemented actual Reverso model loading from HuggingFace checkpoint with graceful CPU fallback and stub fallback if Reverso not installed"
+fixes_applied: []
 
 ---
 
 # Phase 01: Foundation — Verification Report (Re-verification)
 
 **Phase Goal:** FastAPI project with model loading infrastructure (CPU mode)
-**Verified:** 2026-04-24T12:00:00Z
-**Status:** passed
-**Re-verification:** Yes — after MODEL-01 gap closure
+**Verified:** 2026-04-24T12:30:00Z
+**Status:** gaps_found
+**Re-verification:** Yes — after darts reimplementation
 
 ## Goal Achievement
 
@@ -33,90 +61,83 @@ fixes_applied:
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | FastAPI application starts without errors | ✓ VERIFIED | Imports work, lifespan context manager properly configured in main.py (76 lines) |
-| 2 | API responds to health check endpoint | ✓ VERIFIED | 7 health endpoint tests pass, returns {"status": "healthy", "model_loaded": bool} |
-| 3 | Model loading infrastructure is in place | ✓ VERIFIED | ReversoModel class exists, GPU/CPU detection implemented, load_model() async function present |
+| 1 | FastAPI application starts without errors | ✗ FAILED | `uv sync` fails: darts 0.43.0 → shap → numba → llvmlite 0.47.0 requires LLVM 20 but system has LLVM 22 |
+| 2 | API responds to health check endpoint | ✗ FAILED | Cannot start app - dependency resolution fails |
+| 3 | Model loading infrastructure is in place | ✗ FAILED | main.py line 11: `from app.model_loader import ReversoModel, load_model` but model_loader.py exports `DartsModel`, not `ReversoModel` |
 
-### Plan 02 Truths
+**Score:** 0/3 truths verified
 
-| # | Truth | Status | Evidence |
-|---|-------|--------|----------|
-| 4 | Tests verify model loader works on CPU fallback | ✓ VERIFIED | 14 model_loader tests pass, covers torch unavailable, CUDA unavailable, explicit CPU |
-| 5 | Health endpoint returns correct status | ✓ VERIFIED | 7 health tests pass, covers all response scenarios |
-| 6 | Test suite passes | ✓ VERIFIED | `uv run pytest tests/ -v` shows 21 passed in 0.45s |
+### Re-verification: Darts Reimplementation Issues
 
-**Score:** 6/6 truths verified
+The model serving was reimplemented using darts library with TimesFM2p5Model per user's request, but this introduced critical issues:
 
-### Re-verification: MODEL-01 Gap Closure
-
-| Gap | Status | Evidence |
-|-----|--------|----------|
-| MODEL-01: Actual Reverso model loading | ✓ FIXED | model_loader.py lines 81-186 implement actual Reverso loading via huggingface_hub + load_model(). Graceful stub fallback if package not installed. |
-
-**Re-verification conclusion:** Gap closed. Phase goal achieved.
+| Issue | Status | Evidence |
+|-------|--------|----------|
+| darts dependency cannot be installed | ✗ BROKEN | llvmlite build fails - LLVM version mismatch |
+| Import mismatch after darts refactor | ✗ BROKEN | main.py imports `ReversoModel`, model_loader.py exports `DartsModel` |
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `backend/app/main.py` | FastAPI entry point, min 30 lines | ✓ VERIFIED | 76 lines, lifespan context, /health endpoint, imports model_loader and config |
-| `backend/app/config.py` | Settings & ModelConfig exports | ✓ VERIFIED | 41 lines, Settings and ModelConfig classes defined and importable |
-| `backend/app/model_loader.py` | ReversoModel & load_model exports | ✓ VERIFIED | 206 lines, actual Reverso loading via huggingface_hub, GPU/CPU detection, graceful torch handling |
-| `backend/tests/test_model_loader.py` | Unit tests, min 40 lines | ✓ VERIFIED | 170 lines, 14 tests covering device detection and loading |
-| `backend/tests/test_health.py` | Health endpoint tests, min 20 lines | ✓ VERIFIED | 85 lines, 7 tests covering all response scenarios |
+| `backend/app/main.py` | FastAPI entry point, min 30 lines | ⚠️ ORPHANED | 76 lines exists but imports wrong class name from model_loader |
+| `backend/app/config.py` | Settings & ModelConfig exports | ✓ EXISTS | 41 lines, correct exports |
+| `backend/app/model_loader.py` | DartsModel & load_model exports | ✓ EXISTS | 190 lines, but main.py not updated to use new exports |
+| `backend/tests/test_model_loader.py` | Unit tests, min 40 lines | ✓ EXISTS | 227 lines, tests DartsModel correctly |
+| `backend/tests/test_health.py` | Health endpoint tests | ? UNCERTAIN | File not verified - needs working environment |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|----|-----|--------|---------|
-| `backend/app/main.py` | `backend/app/model_loader.py` | import and lifespan initialization | ✓ WIRED | Line 11: `from app.model_loader import ReversoModel, load_model` |
-| `backend/app/main.py` | `backend/app/config.py` | Settings dependency | ✓ WIRED | Line 10: `from app.config import get_settings` |
+| `backend/app/main.py` | `backend/app/model_loader.py` | import | ✗ NOT_WIRED | Imports `ReversoModel` but model_loader exports `DartsModel` - import will fail |
+| `backend/app/main.py` | `backend/app/config.py` | Settings dependency | ✓ WIRED | Line 10: `from app.config import get_settings` works correctly |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
-| FastAPI app imports | `uv run python -c "from app.main import app"` | OK | ✓ PASS |
-| Config imports | `uv run python -c "from app.config import Settings, ModelConfig"` | OK | ✓ PASS |
-| Model loader imports | `uv run python -c "from app.model_loader import ReversoModel, load_model"` | OK | ✓ PASS |
-| Test suite | `uv run pytest tests/ -v` | 21 passed | ✓ PASS |
-| Health endpoint (without server) | `uv run pytest tests/test_health.py -v` | 7 passed | ✓ PASS |
+| FastAPI app imports | `uv run python -c "from app.main import app"` | ImportError - darts cannot be installed | ✗ FAIL |
+| Config imports | `uv run python -c "from app.config import Settings, ModelConfig"` | Cannot run - uv sync fails | ✗ FAIL |
+| Model loader imports | `uv run python -c "from app.model_loader import DartsModel, load_model"` | Cannot run - uv sync fails | ✗ FAIL |
+| uv sync | `cd backend && uv sync` | llvmlite build failure | ✗ FAIL |
 
 ### Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
 |-------------|-------------|-------------|--------|----------|
-| **MODEL-01** | 01-01-PLAN.md | System loads Reverso model at FastAPI startup (GPU if available, CPU fallback) | ✓ VERIFIED | model_loader.py lines 81-186: actual Reverso loading via huggingface_hub.snapshot_download + reverso.load_model(). Graceful stub fallback if package not installed. |
-| **MODEL-02** | 01-01-PLAN.md | System handles GPU/CUDA unavailability gracefully with clear error message | ✓ VERIFIED | Lines 63-64, 71, 83-87, 109-121 handle all error cases with clear warning/error logging |
+| **MODEL-01** | 01-01-PLAN.md | System loads Reverso model at FastAPI startup (GPU if available, CPU fallback) | ✗ BLOCKED | Model loader rewritten for darts but: (1) darts cannot be installed, (2) main.py not updated for new exports |
+| **MODEL-02** | 01-01-PLAN.md | System handles GPU/CUDA unavailability gracefully with clear error message | ? UNCERTAIN | Cannot test - darts dependency fails to install |
 
 ### Anti-Patterns Found
 
-None — the placeholder stub pattern has been replaced with actual Reverso model loading code.
+| File | Line | Pattern | Severity | Impact |
+|------|------|---------|----------|--------|
+| `backend/app/main.py` | 11 | Import mismatch after refactor | 🛑 Blocker | App cannot import - expects ReversoModel, gets DartsModel |
+| `backend/pyproject.toml` | 13 | darts as hard dependency | 🛑 Blocker | darts cannot build on LLVM 22 systems |
+| `backend/app/model_loader.py` | 1-190 | darts-only implementation | 🛑 Blocker | No working fallback when darts unavailable |
 
 ### Human Verification Required
 
-None — all verifiable items confirmed through automated testing.
-
-### Notes
-
-The actual Reverso model loading requires:
-1. Reverso package installed: `pip install -e git+https://github.com/SalesforceAIResearch/Reverso.git`
-2. CUDA-capable GPU for full model inference (CPU fallback works but FlashFFTConv may have CUDA dependencies)
-3. Network access to download checkpoint from HuggingFace
-
-On platforms where these requirements are not met, the model loader gracefully falls back to stub mode with clear warning logs.
+None — all issues are code/build issues, not runtime behavior issues.
 
 ### Gaps Summary
 
-No gaps remaining. Phase 01 goal fully achieved:
-- FastAPI application scaffolding complete
-- Model loading infrastructure with GPU/CPU detection implemented
-- Health check endpoint operational
-- All tests passing
-- MODEL-01 gap closed (commit `d452403`)
+**Critical blockers preventing goal achievement:**
+
+1. **darts dependency unresolvable**: The darts library cannot be installed on this system due to llvmlite requiring LLVM 20 while the system has LLVM 22. This is a fundamental environment incompatibility.
+
+2. **Import mismatch after darts refactor**: main.py still imports `ReversoModel` but model_loader.py was rewritten to export `DartsModel`. The refactor was incomplete - main.py wasn't updated.
+
+3. **No working fallback**: Even though model_loader.py has `DARTS_AVAILABLE` handling, the dependency itself cannot be resolved via uv, preventing any fallback from being exercised.
+
+**To fix:**
+- Option A: Make darts an optional dependency and implement a working stub/alternative for systems where darts cannot be installed
+- Option B: Update main.py to import `DartsModel` instead of `ReversoModel` (if darts can be installed on target system)
+- Option C: Use a different time series library that doesn't have LLVM build issues
 
 ---
 
-_Verified: 2026-04-24T12:00:00Z_
+_Verified: 2026-04-24T12:30:00Z_
 _Verifier: OpenCode (gsd-verifier)_
-_Re-verified after MODEL-01 gap fix — goal achieved_
+_Re-verification after darts reimplementation — gaps found, goal not achieved_
