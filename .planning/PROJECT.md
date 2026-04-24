@@ -32,13 +32,12 @@ Upload any time series CSV and get a Reverso-powered forecast in seconds with fu
 
 ## Context
 
-**Reverso Model:**
-- Time series foundation model from SalesforceAIResearch
-- Hybrid architecture: long convolutions + DeltaNet layers + MLP + attention decoder
-- Zero-shot forecasting capability (no training required)
-- Sizes: Reverso-Nano (200K), Reverso-Small (550K), Reverso (2.6M params)
-- Input: normalized [0,1] sequences, output: predicted future points
-- CPU inference supported (GPU optional for faster inference)
+**Foundation Models (via darts):**
+- darts library provides unified API for multiple foundation models
+- **TimesFM2p5Model** (Google) — primary model, CPU-friendly, zero-shot
+- **Chronos2Model** (Amazon) — available as alternative
+- Reverso to be added later via darts
+- All models: no training required, zero-shot forecasting
 
 **CSV Handling:**
 - Mixed signal types (financial, sensor, energy, etc.)
