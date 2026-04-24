@@ -12,12 +12,11 @@ Upload any time series CSV and get a Reverso-powered forecast in seconds with fu
 
 ### Validated
 
-(None yet — ship to validate)
+- ✓ Reverso model integration via FastAPI microservice — Phase 1: MODEL-01, MODEL-02
 
 ### Active
 
 - [ ] CSV upload with flexible column mapping (auto-detect legend or manual column selection)
-- [ ] Reverso model integration via FastAPI microservice
 - [ ] Interactive D3.js visualization with zoom/pan and comparison overlays
 - [ ] Configurable prediction parameters: context size, prediction length, frequency
 - [ ] Prediction time display for performance benchmarking
@@ -62,8 +61,9 @@ Upload any time series CSV and get a Reverso-powered forecast in seconds with fu
 | Zero-shot only | Reverso is foundation model — no training needed | — Pending |
 | Large dataset support | User works with 50K+ point signals | — Pending |
 | Manual column mapping fallback | CSV formats vary — can't always auto-detect | — Pending |
-| CPU-only inference | Initial deployment targets CPU execution | — Pending |
+| CPU-only inference | Reverso runs on CPU with graceful fallback | ✓ Validated in Phase 1 |
+| Reverso on Hugging Face | shinfxh/reverso has checkpoints available | ✓ Verified |
 
 ---
 
-*Last updated: 2026-04-23 after CPU-only clarification*
+*Last updated: 2026-04-24 after Phase 1 completion*
