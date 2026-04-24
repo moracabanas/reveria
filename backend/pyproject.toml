@@ -10,6 +10,7 @@ dependencies = [
     "pandas>=2.2.0",
     "numpy>=1.26.0",
     "pydantic-settings>=2.0.0",
+    "darts>=0.35.0",
 ]
 
 [project.optional-dependencies]
@@ -21,11 +22,8 @@ dev = [
 torch = [
     "torch>=2.2.0",
 ]
-reverso = [
-    # huggingface-hub is the only PyPI dependency for Reverso model loading
-    # The Reverso package itself (flash-fft-conv, flash-linear-attention) must be
-    # installed separately from GitHub: pip install -e git+https://github.com/SalesforceAIResearch/Reverso.git
-    "huggingface-hub>=0.24.0",
+darts = [
+    "torch>=2.2.0",
 ]
 
 [build-system]
