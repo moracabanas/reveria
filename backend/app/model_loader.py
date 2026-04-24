@@ -1,198 +1,205 @@
-"""Chronos model serving layer for time series forecasting.
+"""Time series forecasting using StatsForecast models.
 
-This module provides model loading infrastructure using the Chronos family of
-pretrained time series forecasting models from Amazon. Chronos-2 provides
-zero-shot forecasting without requiring training.
+This module provides model loading infrastructure using StatsForecast -
+a collection of fast statistical models for time series forecasting.
 
-Models available:
-- Chronos-2 (120M params) - latest, best performance
-- Chronos-Bolt variants (9M-205M params) - faster, more efficient
-- Chronos-T5 variants (8M-710M params) - original Chronos models
+Models available (CPU-friendly, no torch required):
+- AutoARIMA: Automatic ARIMA selection
+- AutoETS: Automatic Exponential Smoothing
+- AutoCES: Automatic Complex Exponential Smoothing
+- AutoTheta: Automatic Theta method
+- SeasonalNaive: Seasonal naive baseline
+- DynamicOptimizedTheta: Optimized Theta method
+
+For neural models (require ml optional-deps):
+- mlforecast: ML-based forecasting (LightGBM, XGBoost, etc.)
+- neuralforecast: Neural network models (NBEATS, NHITS, etc.)
 """
 
 import logging
-from typing import Optional
+from typing import Optional, Union
+
+import numpy as np
 
 logger = logging.getLogger(__name__)
 
-CHRONOS_AVAILABLE = False
-Chronos2Pipeline = None
-chronos_import_error = None
-
+STATSFORECAST_AVAILABLE = False
 try:
-    from chronos import Chronos2Pipeline
-    CHRONOS_AVAILABLE = True
-    logger.info("Chronos-2 pipeline available")
-except ImportError as import_error:
-    CHRONOS_AVAILABLE = False
-    chronos_import_error = import_error
+    from statsforecast import StatsForecast
+    from statsforecast.models import (
+        AutoARIMA,
+        AutoETS,
+        AutoCES,
+        AutoTheta,
+        SeasonalNaive,
+        DynamicOptimizedTheta,
+    )
+    STATSFORECAST_AVAILABLE = True
+    logger.info("StatsForecast available")
+except ImportError as e:
+    StatsForecast = None
+    statsforecast_import_error = e
     logger.warning(
-        f"Chronos not available: {import_error}. "
-        "Install with: pip install chronos-forecasting"
+        f"StatsForecast not available: {e}. "
+        "Install with: pip install statsforecast"
     )
 
 
-class ChronosModel:
-    """Chronos-2 model wrapper for zero-shot time series forecasting.
+class ForecastingModel:
+    """Wrapper for StatsForecast models providing unified forecasting API.
 
-    This class provides a simplified interface to Amazon's Chronos-2 model
-    through the chronos-forecasting package.
+    Supports multiple statistical models with automatic parameter selection.
+    All models run on CPU without requiring GPU or torch.
 
     Attributes:
-        model_id: The Chronos model variant to use
-        device: Device to run inference on ("cpu", "cuda", or "auto")
-        model: The underlying Chronos2Pipeline instance (or None if not loaded)
+        model_type: Type of forecasting model to use
+        model: The underlying statsforecast model instance
+        fitted_model: The fitted model after calling fit()
     """
 
     def __init__(
         self,
-        model_id: str = "amazon/chronos-2",
-        device: str = "cpu",
+        model_type: str = "autoarima",
+        season_length: int = 1,
     ):
-        """Initialize the ChronosModel.
+        """Initialize the forecasting model.
 
         Args:
-            model_id: Chronos model variant.
-                Options: "amazon/chronos-2", "amazon/chronos-bolt-tiny/small/medium/base",
-                "amazon/chronos-t5-tiny/mini/small/base/large"
-            device: Device for inference ("cpu", "cuda", or "auto")
+            model_type: Type of model to use.
+                Options: "autoarima", "autoets", "autoces", "autotheta",
+                "seasonalnaive", "dynamicoptimizedtheta"
+            season_length: Number of observations per season (1 = no seasonality)
         """
-        self.model_id = model_id
-        self.device = device
+        self.model_type = model_type.lower()
+        self.season_length = season_length
         self.model = None
+        self.fitted_model = None
+        self._sf_model = None
 
-        logger.info(f"ChronosModel initialized: model_id={model_id}, device={device}")
-
-    def load(self) -> None:
-        """Load the Chronos model from HuggingFace.
-
-        Downloads model checkpoints on first use.
-
-        Raises:
-            RuntimeError: If model loading fails
-        """
-        if not CHRONOS_AVAILABLE:
-            logger.warning(
-                f"Chronos not available - cannot load model. "
-                f"Error: {chronos_import_error}"
-            )
-            self.model = None
+        if not STATSFORECAST_AVAILABLE:
+            logger.warning("StatsForecast not available - model will be stub")
             return
 
         try:
-            logger.info(f"Loading Chronos model: {self.model_id}...")
-            self.model = Chronos2Pipeline.from_pretrained(
-                self.model_id,
-                device_map=self.device,
-            )
-            logger.info(f"Chronos model {self.model_id} loaded successfully")
+            self._sf_model = self._create_model()
+            logger.info(f"ForecastingModel initialized: type={model_type}, season={season_length}")
         except Exception as e:
-            logger.error(f"Failed to load Chronos model: {e}")
-            self.model = None
-            raise RuntimeError(f"Failed to load Chronos model: {e}") from e
+            logger.error(f"Failed to initialize model: {e}")
+            self._sf_model = None
 
-    def predict(
-        self,
-        context: list[float],
-        prediction_length: int = 96,
-        quantile_levels: Optional[list[float]] = None,
-    ) -> dict:
-        """Generate predictions for the given context.
+    def _create_model(self):
+        """Create the underlying statsforecast model."""
+        if self.model_type == "autoarima":
+            return AutoARIMA(season_length=self.season_length)
+        elif self.model_type == "autoets":
+            return AutoETS(season_length=self.season_length)
+        elif self.model_type == "autoces":
+            return AutoCES(season_length=self.season_length)
+        elif self.model_type == "autotheta":
+            return AutoTheta(season_length=self.season_length)
+        elif self.model_type == "seasonalnaive":
+            return SeasonalNaive(season_length=self.season_length)
+        elif self.model_type == "dynamicoptimizedtheta":
+            return DynamicOptimizedTheta(season_length=self.season_length)
+        else:
+            logger.warning(f"Unknown model type '{self.model_type}', defaulting to AutoARIMA")
+            return AutoARIMA(season_length=self.season_length)
+
+    def load(self) -> None:
+        """Mark model as loaded (StatsForecast is lazy, no explicit load needed)."""
+        if not STATSFORECAST_AVAILABLE:
+            logger.warning("StatsForecast not available")
+            self.model = None
+            return
+        self.model = self._sf_model
+        logger.info(f"Model loaded: {self.model_type}")
+
+    def fit(self, input_series: np.ndarray) -> None:
+        """Fit the model on the input time series.
 
         Args:
-            context: List of historical time series values
-            prediction_length: Number of future steps to forecast
-            quantile_levels: Quantile levels for probabilistic forecast
+            input_series: numpy array of time series values
 
-        Returns:
-            Dictionary with:
-                - forecast: numpy array of predicted values (median)
-                - quantiles: dict of quantile -> array predictions (if quantile_levels provided)
-                - prediction_length: number of predicted steps
+        Raises:
+            RuntimeError: If fitting fails
         """
-        if self.model is None:
-            raise RuntimeError("Model not loaded - call load() first")
+        if not STATSFORECAST_AVAILABLE:
+            raise RuntimeError("StatsForecast not available - cannot fit model")
 
-        if quantile_levels is None:
-            quantile_levels = [0.1, 0.5, 0.9]
+        if self._sf_model is None:
+            raise RuntimeError("Model not initialized")
 
         try:
             import pandas as pd
 
-            logger.info(f"Generating {prediction_length} predictions...")
+            logger.info(f"Fitting {self.model_type} on series of length {len(input_series)}")
 
-            context_df = pd.DataFrame({
-                "timestamp": pd.date_range(
-                    periods=len(context),
-                    freq="h"
-                ),
-                "value": context
+            n = len(input_series)
+            df = pd.DataFrame({
+                "ds": pd.date_range(start="2020-01-01", periods=n, freq="h"),
+                "y": input_series,
+                "unique_id": "series1"
             })
 
-            pred_df = self.model.predict_df(
-                context_df,
-                prediction_length=prediction_length,
-                quantile_levels=quantile_levels,
-                id_column="timestamp",
-                timestamp_column="timestamp",
-                target="value",
+            sf = StatsForecast(
+                models=[self._sf_model],
+                freq="h",
+                n_jobs=-1,
             )
+            sf.fit(df)
 
-            forecast = pred_df["predictions"].values
+            self.fitted_model = sf
+            logger.info("Model fit completed")
 
-            result = {
-                "forecast": forecast,
-                "prediction_length": prediction_length,
-            }
+        except Exception as e:
+            logger.error(f"Failed to fit model: {e}")
+            raise RuntimeError(f"Failed to fit model: {e}") from e
 
-            if quantile_levels:
-                quantiles = {}
-                for q in quantile_levels:
-                    q_str = str(q)
-                    if q_str in pred_df.columns:
-                        quantiles[q] = pred_df[q_str].values
-                result["quantiles"] = quantiles
+    def predict(self, n: int) -> np.ndarray:
+        """Generate predictions for n future time steps.
 
-            logger.info(f"Prediction completed: shape={forecast.shape}")
-            return result
+        Args:
+            n: Number of future time steps to predict
+
+        Returns:
+            numpy array of predicted values
+
+        Raises:
+            RuntimeError: If prediction fails or model not fitted
+        """
+        if self.fitted_model is None:
+            raise RuntimeError("Model not fitted - call fit() first")
+
+        try:
+            logger.info(f"Generating {n} predictions...")
+            pred_df = self.fitted_model.predict(h=n)
+
+            pred_values = pred_df["fitted"].values if "fitted" in pred_df.columns else pred_df.iloc[:, 0].values
+
+            logger.info(f"Prediction completed: shape={pred_values.shape}")
+            return pred_values
 
         except Exception as e:
             logger.error(f"Prediction failed: {e}")
             raise RuntimeError(f"Prediction failed: {e}") from e
 
 
-def create_chronos_model(
-    model_id: str = "amazon/chronos-2",
-    device: str = "cpu",
-) -> ChronosModel:
-    """Factory function to create a ChronosModel instance.
-
-    Args:
-        model_id: Chronos model variant to use
-        device: Device for inference
-
-    Returns:
-        Configured ChronosModel instance (not yet loaded)
-    """
-    return ChronosModel(model_id=model_id, device=device)
-
-
 async def load_model(
-    model_id: str = "amazon/chronos-2",
-    device: str = "cpu",
-) -> ChronosModel:
-    """Load the Chronos model during FastAPI startup.
+    model_type: str = "autoarima",
+    season_length: int = 1,
+) -> ForecastingModel:
+    """Load the forecasting model during FastAPI startup.
 
     Args:
-        model_id: Chronos model variant to load
-        device: Device for inference
+        model_type: Type of forecasting model to use
+        season_length: Seasonality length
 
     Returns:
-        Loaded ChronosModel instance
+        Loaded ForecastingModel instance
     """
-    logger.info(f"Loading Chronos model (id={model_id}, device={device})...")
+    logger.info(f"Loading forecasting model (type={model_type})...")
 
-    model = ChronosModel(model_id=model_id, device=device)
+    model = ForecastingModel(model_type=model_type, season_length=season_length)
     model.load()
 
     return model

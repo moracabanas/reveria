@@ -8,14 +8,14 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.model_loader import ChronosModel, load_model
+from app.model_loader import ForecastingModel, load_model
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Global model instance
-_model: Optional[ChronosModel] = None
+_model: Optional[ForecastingModel] = None
 
 
 @asynccontextmanager
@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     global _model
 
     # Startup: load the model
-    logger.info("Starting Reverso Signal Dashboard API (darts/TimesFM)...")
+    logger.info("Starting Reverso Signal Dashboard API (StatsForecast)...")
     try:
         _model = await load_model()
         logger.info("Model loaded successfully")
