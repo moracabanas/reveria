@@ -1,190 +1,198 @@
-"""Darts model serving layer with TimesFM2p5Model.
+"""Chronos model serving layer for time series forecasting.
 
-This module provides model loading infrastructure using the darts library's
-foundation model API. TimesFM2p5Model from Google is CPU-friendly and provides
+This module provides model loading infrastructure using the Chronos family of
+pretrained time series forecasting models from Amazon. Chronos-2 provides
 zero-shot forecasting without requiring training.
 
-The darts library provides a unified API for multiple foundation models
-(TimesFM, Chronos, with Reverso later), making it easy to swap models.
+Models available:
+- Chronos-2 (120M params) - latest, best performance
+- Chronos-Bolt variants (9M-205M params) - faster, more efficient
+- Chronos-T5 variants (8M-710M params) - original Chronos models
 """
 
 import logging
 from typing import Optional
 
-import numpy as np
-import pandas as pd
-
 logger = logging.getLogger(__name__)
 
-# Try to import darts components
-try:
-    from darts.models import TimesFM2p5Model
-    from darts import TimeSeries
+CHRONOS_AVAILABLE = False
+Chronos2Pipeline = None
+chronos_import_error = None
 
-    DARTS_AVAILABLE = True
+try:
+    from chronos import Chronos2Pipeline
+    CHRONOS_AVAILABLE = True
+    logger.info("Chronos-2 pipeline available")
 except ImportError as import_error:
-    DARTS_AVAILABLE = False
-    darts_import_error = import_error
-    TimesFM2p5Model = None
-    TimeSeries = None
+    CHRONOS_AVAILABLE = False
+    chronos_import_error = import_error
     logger.warning(
-        f"Darts not available: {import_error}. "
-        "Install with: pip install darts[torch]"
+        f"Chronos not available: {import_error}. "
+        "Install with: pip install chronos-forecasting"
     )
 
 
-class DartsModel:
-    """TimesFM2p5Model wrapper using darts unified API.
+class ChronosModel:
+    """Chronos-2 model wrapper for zero-shot time series forecasting.
 
-    This class provides a simplified interface to Google's TimesFM 2.5 model
-    through the darts library. It handles model loading and prediction.
+    This class provides a simplified interface to Amazon's Chronos-2 model
+    through the chronos-forecasting package.
 
     Attributes:
-        input_chunk_length: Number of time steps in the past for model input
-        output_chunk_length: Number of time steps predicted at once
-        model: The underlying darts TimesFM2p5Model instance (or None if not loaded)
+        model_id: The Chronos model variant to use
+        device: Device to run inference on ("cpu", "cuda", or "auto")
+        model: The underlying Chronos2Pipeline instance (or None if not loaded)
     """
 
     def __init__(
         self,
-        input_chunk_length: int = 64,
-        output_chunk_length: int = 32,
+        model_id: str = "amazon/chronos-2",
+        device: str = "cpu",
     ):
-        """Initialize the DartsModel with TimesFM2p5Model.
+        """Initialize the ChronosModel.
 
         Args:
-            input_chunk_length: Number of past time steps as model input.
-                Must be <= 16384 (TimesFM context limit).
-            output_chunk_length: Number of future time steps predicted at once.
-                Must be <= 128 (TimesFM output patch size).
+            model_id: Chronos model variant.
+                Options: "amazon/chronos-2", "amazon/chronos-bolt-tiny/small/medium/base",
+                "amazon/chronos-t5-tiny/mini/small/base/large"
+            device: Device for inference ("cpu", "cuda", or "auto")
         """
-        self.input_chunk_length = input_chunk_length
-        self.output_chunk_length = output_chunk_length
+        self.model_id = model_id
+        self.device = device
         self.model = None
-        self._training_series = None
 
-        logger.info(
-            f"DartsModel initialized: input_chunk={input_chunk_length}, "
-            f"output_chunk={output_chunk_length}"
-        )
+        logger.info(f"ChronosModel initialized: model_id={model_id}, device={device}")
 
     def load(self) -> None:
-        """Load the TimesFM2p5Model from darts.
+        """Load the Chronos model from HuggingFace.
 
-        For foundation models like TimesFM, the model checkpoint is automatically
-        downloaded from HuggingFace on first use. This method initializes the
-        model but doesn't require explicit loading since darts handles it lazily.
+        Downloads model checkpoints on first use.
 
         Raises:
             RuntimeError: If model loading fails
         """
-        if not DARTS_AVAILABLE:
+        if not CHRONOS_AVAILABLE:
             logger.warning(
-                "Darts not available - cannot load TimesFM2p5Model. "
-                f"Error: {darts_import_error}"
+                f"Chronos not available - cannot load model. "
+                f"Error: {chronos_import_error}"
             )
             self.model = None
             return
 
         try:
-            logger.info("Loading TimesFM2p5Model via darts...")
-            self.model = TimesFM2p5Model(
-                input_chunk_length=self.input_chunk_length,
-                output_chunk_length=self.output_chunk_length,
+            logger.info(f"Loading Chronos model: {self.model_id}...")
+            self.model = Chronos2Pipeline.from_pretrained(
+                self.model_id,
+                device_map=self.device,
             )
-            logger.info("TimesFM2p5Model loaded successfully")
+            logger.info(f"Chronos model {self.model_id} loaded successfully")
         except Exception as e:
-            logger.error(f"Failed to load TimesFM2p5Model: {e}")
+            logger.error(f"Failed to load Chronos model: {e}")
             self.model = None
-            raise RuntimeError(f"Failed to load TimesFM2p5Model: {e}") from e
+            raise RuntimeError(f"Failed to load Chronos model: {e}") from e
 
-    def fit(self, input_series: np.ndarray) -> None:
-        """Fit the model on the input time series.
-
-        TimesFM is a foundation model that performs zero-shot forecasting,
-        but darts requires calling fit() to prepare the model for prediction.
-
-        Args:
-            input_series: numpy array or pandas Series of time series values
-
-        Raises:
-            RuntimeError: If fitting fails
-        """
-        if not DARTS_AVAILABLE:
-            raise RuntimeError("Darts not available - cannot fit model")
-
-        if self.model is None:
-            self.load()
-
-        try:
-            # Convert to darts TimeSeries
-            if isinstance(input_series, np.ndarray):
-                series = TimeSeries.from_values(input_series)
-            elif isinstance(input_series, pd.Series):
-                series = TimeSeries.from_series(input_series)
-            else:
-                series = input_series  # Assume already a TimeSeries
-
-            logger.info(f"Fitting TimesFM2p5Model on series of length {len(input_series)}")
-            self.model.fit(series)
-            self._training_series = series
-            logger.info("Model fit completed")
-        except Exception as e:
-            logger.error(f"Failed to fit model: {e}")
-            raise RuntimeError(f"Failed to fit model: {e}") from e
-
-    def predict(self, n: int) -> np.ndarray:
-        """Generate predictions for n future time steps.
+    def predict(
+        self,
+        context: list[float],
+        prediction_length: int = 96,
+        quantile_levels: Optional[list[float]] = None,
+    ) -> dict:
+        """Generate predictions for the given context.
 
         Args:
-            n: Number of future time steps to predict
+            context: List of historical time series values
+            prediction_length: Number of future steps to forecast
+            quantile_levels: Quantile levels for probabilistic forecast
 
         Returns:
-            numpy array of predicted values
-
-        Raises:
-            RuntimeError: If prediction fails
+            Dictionary with:
+                - forecast: numpy array of predicted values (median)
+                - quantiles: dict of quantile -> array predictions (if quantile_levels provided)
+                - prediction_length: number of predicted steps
         """
         if self.model is None:
-            raise RuntimeError("Model not loaded - call load() or fit() first")
+            raise RuntimeError("Model not loaded - call load() first")
+
+        if quantile_levels is None:
+            quantile_levels = [0.1, 0.5, 0.9]
 
         try:
-            logger.info(f"Generating {n} predictions...")
-            prediction = self.model.predict(n=n)
-            # Extract numpy values from prediction
-            pred_values = prediction.values().flatten()
-            logger.info(f"Prediction completed: shape={pred_values.shape}")
-            return pred_values
+            import pandas as pd
+
+            logger.info(f"Generating {prediction_length} predictions...")
+
+            context_df = pd.DataFrame({
+                "timestamp": pd.date_range(
+                    periods=len(context),
+                    freq="h"
+                ),
+                "value": context
+            })
+
+            pred_df = self.model.predict_df(
+                context_df,
+                prediction_length=prediction_length,
+                quantile_levels=quantile_levels,
+                id_column="timestamp",
+                timestamp_column="timestamp",
+                target="value",
+            )
+
+            forecast = pred_df["predictions"].values
+
+            result = {
+                "forecast": forecast,
+                "prediction_length": prediction_length,
+            }
+
+            if quantile_levels:
+                quantiles = {}
+                for q in quantile_levels:
+                    q_str = str(q)
+                    if q_str in pred_df.columns:
+                        quantiles[q] = pred_df[q_str].values
+                result["quantiles"] = quantiles
+
+            logger.info(f"Prediction completed: shape={forecast.shape}")
+            return result
+
         except Exception as e:
             logger.error(f"Prediction failed: {e}")
             raise RuntimeError(f"Prediction failed: {e}") from e
 
 
-async def load_model(
-    input_chunk_length: int = 64,
-    output_chunk_length: int = 32,
-) -> DartsModel:
-    """Load the TimesFM2p5Model during FastAPI startup.
-
-    This async function is called during the application lifespan
-    to load the model before handling requests.
+def create_chronos_model(
+    model_id: str = "amazon/chronos-2",
+    device: str = "cpu",
+) -> ChronosModel:
+    """Factory function to create a ChronosModel instance.
 
     Args:
-        input_chunk_length: Number of past time steps as model input
-        output_chunk_length: Number of future time steps predicted at once
+        model_id: Chronos model variant to use
+        device: Device for inference
 
     Returns:
-        Loaded DartsModel instance
+        Configured ChronosModel instance (not yet loaded)
     """
-    logger.info(
-        f"Loading TimesFM2p5Model (input_chunk={input_chunk_length}, "
-        f"output_chunk={output_chunk_length})..."
-    )
+    return ChronosModel(model_id=model_id, device=device)
 
-    model = DartsModel(
-        input_chunk_length=input_chunk_length,
-        output_chunk_length=output_chunk_length,
-    )
+
+async def load_model(
+    model_id: str = "amazon/chronos-2",
+    device: str = "cpu",
+) -> ChronosModel:
+    """Load the Chronos model during FastAPI startup.
+
+    Args:
+        model_id: Chronos model variant to load
+        device: Device for inference
+
+    Returns:
+        Loaded ChronosModel instance
+    """
+    logger.info(f"Loading Chronos model (id={model_id}, device={device})...")
+
+    model = ChronosModel(model_id=model_id, device=device)
     model.load()
 
     return model

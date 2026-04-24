@@ -10,7 +10,7 @@ dependencies = [
     "pandas>=2.2.0",
     "numpy>=1.26.0",
     "pydantic-settings>=2.0.0",
-    "darts>=0.35.0",
+    "chronos-forecasting>=2.0.0",
 ]
 
 [project.optional-dependencies]

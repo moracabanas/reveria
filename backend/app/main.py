@@ -8,14 +8,14 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
-from app.model_loader import DartsModel, load_model
+from app.model_loader import ChronosModel, load_model
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Global model instance
-_model: Optional[DartsModel] = None
+_model: Optional[ChronosModel] = None
 
 
 @asynccontextmanager
