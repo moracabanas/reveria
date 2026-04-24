@@ -21,6 +21,11 @@ dev = [
 torch = [
     "torch>=2.2.0",
 ]
+reverso = [
+    "huggingface-hub>=0.24.0",
+    "flash-fft-conv>=1.0.0",
+    "flash-linear-attention>=1.0.0",
+]
 
 [build-system]
 requires = ["hatchling"]
