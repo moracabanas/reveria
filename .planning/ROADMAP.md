@@ -25,8 +25,8 @@
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md — Project scaffolding, model loading infrastructure
-- [ ] 01-02-PLAN.md — Unit tests for model loader and health endpoint
+- [x] 01-01-PLAN.md — Project scaffolding, model loading infrastructure
+- [x] 01-02-PLAN.md — Unit tests for model loader and health endpoint
 
 **UI hint**: no
 
