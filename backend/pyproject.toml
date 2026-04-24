@@ -10,7 +10,8 @@ dependencies = [
     "pandas>=2.2.0",
     "numpy>=1.26.0",
     "pydantic-settings>=2.0.0",
-    "statsforecast>=1.7.0",
+    "torch>=2.2.0",
+    "neuralforecast>=1.7.0",
 ]
 
 [project.optional-dependencies]
@@ -18,10 +19,6 @@ dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.23.0",
     "ruff>=0.4.0",
-]
-ml = [
-    "mlforecast>=0.10.0",
-    "neuralforecast>=1.7.0",
 ]
 
 [build-system]

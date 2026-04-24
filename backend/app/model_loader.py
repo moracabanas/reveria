@@ -1,168 +1,172 @@
-"""Time series forecasting using StatsForecast models.
+"""NeuralForecast model serving layer for time series forecasting.
 
-This module provides model loading infrastructure using StatsForecast -
-a collection of fast statistical models for time series forecasting.
+This module provides model loading infrastructure using NeuralForecast -
+neural network models for time series forecasting (NBEATS, NHITS, etc.)
 
-Models available (CPU-friendly, no torch required):
-- AutoARIMA: Automatic ARIMA selection
-- AutoETS: Automatic Exponential Smoothing
-- AutoCES: Automatic Complex Exponential Smoothing
-- AutoTheta: Automatic Theta method
-- SeasonalNaive: Seasonal naive baseline
-- DynamicOptimizedTheta: Optimized Theta method
-
-For neural models (require ml optional-deps):
-- mlforecast: ML-based forecasting (LightGBM, XGBoost, etc.)
-- neuralforecast: Neural network models (NBEATS, NHITS, etc.)
+Models available (require torch):
+- NBEATS: Neural Basis Expansion Analysis
+- NHITS: Neural Hierarchical Interpolation for Time Series
+- TFT: Temporal Fusion Transformer
+- RNN, LSTM, GRU: Recurrent networks
+- And more...
 """
 
 import logging
-from typing import Optional, Union
-
-import numpy as np
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
-STATSFORECAST_AVAILABLE = False
+NEURALFORECAST_AVAILABLE = False
 try:
-    from statsforecast import StatsForecast
-    from statsforecast.models import (
-        AutoARIMA,
-        AutoETS,
-        AutoCES,
-        AutoTheta,
-        SeasonalNaive,
-        DynamicOptimizedTheta,
-    )
-    STATSFORECAST_AVAILABLE = True
-    logger.info("StatsForecast available")
+    from neuralforecast import NeuralForecast
+    from neuralforecast.models import NHITS, NBEATS
+    NEURALFORECAST_AVAILABLE = True
+    logger.info("NeuralForecast available")
 except ImportError as e:
-    StatsForecast = None
-    statsforecast_import_error = e
+    NeuralForecast = None
+    NHITS = None
+    NBEATS = None
+    neuralforecast_import_error = e
     logger.warning(
-        f"StatsForecast not available: {e}. "
-        "Install with: pip install statsforecast"
+        f"NeuralForecast not available: {e}. "
+        "Install with: pip install neuralforecast"
     )
 
 
 class ForecastingModel:
-    """Wrapper for StatsForecast models providing unified forecasting API.
+    """NeuralForecast model wrapper.
 
-    Supports multiple statistical models with automatic parameter selection.
-    All models run on CPU without requiring GPU or torch.
+    Provides zero-shot or quick-training forecasting using neural networks.
 
     Attributes:
-        model_type: Type of forecasting model to use
-        model: The underlying statsforecast model instance
+        model_type: Type of neural model to use
+        input_size: Lookback window size
+        horizon: Forecast horizon (prediction length)
+        model: The underlying neuralforecast model instance
         fitted_model: The fitted model after calling fit()
     """
 
     def __init__(
         self,
-        model_type: str = "autoarima",
-        season_length: int = 1,
+        model_type: str = "nhits",
+        input_size: int = 64,
+        horizon: int = 32,
     ):
         """Initialize the forecasting model.
 
         Args:
-            model_type: Type of model to use.
-                Options: "autoarima", "autoets", "autoces", "autotheta",
-                "seasonalnaive", "dynamicoptimizedtheta"
-            season_length: Number of observations per season (1 = no seasonality)
+            model_type: Type of neural model to use.
+                Options: "nhits", "nbeats"
+            input_size: Number of past time steps as model input
+            horizon: Number of future steps to forecast
         """
         self.model_type = model_type.lower()
-        self.season_length = season_length
+        self.input_size = input_size
+        self.horizon = horizon
         self.model = None
         self.fitted_model = None
-        self._sf_model = None
+        self._nf_model = None
 
-        if not STATSFORECAST_AVAILABLE:
-            logger.warning("StatsForecast not available - model will be stub")
+        if not NEURALFORECAST_AVAILABLE:
+            logger.warning("NeuralForecast not available - model will be stub")
             return
 
         try:
-            self._sf_model = self._create_model()
-            logger.info(f"ForecastingModel initialized: type={model_type}, season={season_length}")
+            self._nf_model = self._create_model()
+            logger.info(f"ForecastingModel initialized: type={model_type}, input={input_size}, horizon={horizon}")
         except Exception as e:
             logger.error(f"Failed to initialize model: {e}")
-            self._sf_model = None
+            self._nf_model = None
 
     def _create_model(self):
-        """Create the underlying statsforecast model."""
-        if self.model_type == "autoarima":
-            return AutoARIMA(season_length=self.season_length)
-        elif self.model_type == "autoets":
-            return AutoETS(season_length=self.season_length)
-        elif self.model_type == "autoces":
-            return AutoCES(season_length=self.season_length)
-        elif self.model_type == "autotheta":
-            return AutoTheta(season_length=self.season_length)
-        elif self.model_type == "seasonalnaive":
-            return SeasonalNaive(season_length=self.season_length)
-        elif self.model_type == "dynamicoptimizedtheta":
-            return DynamicOptimizedTheta(season_length=self.season_length)
+        """Create the underlying neuralforecast model."""
+        if self.model_type == "nhits":
+            return NHITS(
+                input_size=self.input_size,
+                h=self.horizon,
+                max_steps=100,
+                enable_progress_bar=False,
+            )
+        elif self.model_type == "nbeats":
+            return NBEATS(
+                input_size=self.input_size,
+                h=self.horizon,
+                max_steps=100,
+                enable_progress_bar=False,
+            )
         else:
-            logger.warning(f"Unknown model type '{self.model_type}', defaulting to AutoARIMA")
-            return AutoARIMA(season_length=self.season_length)
+            logger.warning(f"Unknown model type '{self.model_type}', defaulting to NHITS")
+            return NHITS(
+                input_size=self.input_size,
+                h=self.horizon,
+                max_steps=100,
+                enable_progress_bar=False,
+            )
 
     def load(self) -> None:
-        """Mark model as loaded (StatsForecast is lazy, no explicit load needed)."""
-        if not STATSFORECAST_AVAILABLE:
-            logger.warning("StatsForecast not available")
+        """Load and initialize the model."""
+        if not NEURALFORECAST_AVAILABLE:
+            logger.warning("NeuralForecast not available")
             self.model = None
             return
-        self.model = self._sf_model
+        self.model = self._nf_model
         logger.info(f"Model loaded: {self.model_type}")
 
-    def fit(self, input_series: np.ndarray) -> None:
+    def fit(self, input_series, **kwargs) -> None:
         """Fit the model on the input time series.
 
         Args:
-            input_series: numpy array of time series values
+            input_series: pandas DataFrame with columns [unique_id, ds, y]
+                or numpy array of values
+            **kwargs: Additional arguments for fit()
 
         Raises:
             RuntimeError: If fitting fails
         """
-        if not STATSFORECAST_AVAILABLE:
-            raise RuntimeError("StatsForecast not available - cannot fit model")
+        if not NEURALFORECAST_AVAILABLE:
+            raise RuntimeError("NeuralForecast not available - cannot fit model")
 
-        if self._sf_model is None:
+        if self._nf_model is None:
             raise RuntimeError("Model not initialized")
 
         try:
             import pandas as pd
 
-            logger.info(f"Fitting {self.model_type} on series of length {len(input_series)}")
+            if isinstance(input_series, dict):
+                df = pd.DataFrame(input_series)
+            elif hasattr(input_series, 'to_dict'):
+                df = pd.DataFrame(input_series.to_dict())
+            else:
+                n = len(input_series)
+                df = pd.DataFrame({
+                    "ds": pd.date_range(start="2020-01-01", periods=n, freq="h"),
+                    "y": input_series,
+                    "unique_id": "series1"
+                })
 
-            n = len(input_series)
-            df = pd.DataFrame({
-                "ds": pd.date_range(start="2020-01-01", periods=n, freq="h"),
-                "y": input_series,
-                "unique_id": "series1"
-            })
+            logger.info(f"Fitting {self.model_type} on series of length {len(df)}")
 
-            sf = StatsForecast(
-                models=[self._sf_model],
+            nf = NeuralForecast(
+                models=[self._nf_model],
                 freq="h",
-                n_jobs=-1,
             )
-            sf.fit(df)
+            nf.fit(df=df, **kwargs)
 
-            self.fitted_model = sf
+            self.fitted_model = nf
             logger.info("Model fit completed")
 
         except Exception as e:
             logger.error(f"Failed to fit model: {e}")
             raise RuntimeError(f"Failed to fit model: {e}") from e
 
-    def predict(self, n: int) -> np.ndarray:
-        """Generate predictions for n future time steps.
+    def predict(self, n: Optional[int] = None) -> dict:
+        """Generate predictions.
 
         Args:
-            n: Number of future time steps to predict
+            n: Number of future steps (overrides horizon if provided)
 
         Returns:
-            numpy array of predicted values
+            Dictionary with forecast array and metadata
 
         Raises:
             RuntimeError: If prediction fails or model not fitted
@@ -170,14 +174,21 @@ class ForecastingModel:
         if self.fitted_model is None:
             raise RuntimeError("Model not fitted - call fit() first")
 
-        try:
-            logger.info(f"Generating {n} predictions...")
-            pred_df = self.fitted_model.predict(h=n)
+        horizon = n if n is not None else self.horizon
 
-            pred_values = pred_df["fitted"].values if "fitted" in pred_df.columns else pred_df.iloc[:, 0].values
+        try:
+            logger.info(f"Generating {horizon} predictions...")
+            pred_df = self.fitted_model.predict(h=horizon)
+
+            pred_values = pred_df["NHITS"].values if "NHITS" in pred_df.columns else pred_df.iloc[:, 0].values
+
+            result = {
+                "forecast": pred_values,
+                "horizon": horizon,
+            }
 
             logger.info(f"Prediction completed: shape={pred_values.shape}")
-            return pred_values
+            return result
 
         except Exception as e:
             logger.error(f"Prediction failed: {e}")
@@ -185,21 +196,23 @@ class ForecastingModel:
 
 
 async def load_model(
-    model_type: str = "autoarima",
-    season_length: int = 1,
+    model_type: str = "nhits",
+    input_size: int = 64,
+    horizon: int = 32,
 ) -> ForecastingModel:
     """Load the forecasting model during FastAPI startup.
 
     Args:
-        model_type: Type of forecasting model to use
-        season_length: Seasonality length
+        model_type: Type of neural model to use
+        input_size: Lookback window size
+        horizon: Forecast horizon
 
     Returns:
         Loaded ForecastingModel instance
     """
-    logger.info(f"Loading forecasting model (type={model_type})...")
+    logger.info(f"Loading NeuralForecast model (type={model_type})...")
 
-    model = ForecastingModel(model_type=model_type, season_length=season_length)
+    model = ForecastingModel(model_type=model_type, input_size=input_size, horizon=horizon)
     model.load()
 
     return model

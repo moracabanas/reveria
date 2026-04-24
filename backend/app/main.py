@@ -24,7 +24,7 @@ async def lifespan(app: FastAPI):
     global _model
 
     # Startup: load the model
-    logger.info("Starting Reverso Signal Dashboard API (StatsForecast)...")
+    logger.info("Starting Reverso Signal Dashboard API (NeuralForecast)...")
     try:
         _model = await load_model()
         logger.info("Model loaded successfully")
