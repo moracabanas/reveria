@@ -1,0 +1,43 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "permission": {
+    "external_directory": {
+      "/Users/morac/.config/opencode/get-shit-done/**": "allow"
+    }
+  },
+  "agent": {
+    "gsd-planner": {
+      "model": "kimi-for-coding/k2p6"
+    },
+    "gsd-plan-checker": {
+      "model": "kimi-for-coding/k2p6"
+    },
+    "gsd-phase-researcher": {
+      "model": "kimi-for-coding/k2p6"
+    },
+    "gsd-roadmapper": {
+      "model": "kimi-for-coding/k2p6"
+    },
+    "gsd-project-researcher": {
+      "model": "kimi-for-coding/k2p6"
+    },
+    "gsd-research-synthesizer": {
+      "model": "kimi-for-coding/k2p6"
+    },
+    "gsd-codebase-mapper": {
+      "model": "kimi-for-coding/k2p6"
+    },
+    "gsd-executor": {
+      "model": "minimax-coding-plan/MiniMax-M2.7-highspeed"
+    },
+    "gsd-debugger": {
+      "model": "minimax-coding-plan/MiniMax-M2.7-highspeed"
+    },
+    "gsd-verifier": {
+      "model": "kimi-for-coding/k2p6"
+    },
+    "gsd-integration-checker": {
+      "model": "kimi-for-coding/k2p6"
+    }
+  }
+}

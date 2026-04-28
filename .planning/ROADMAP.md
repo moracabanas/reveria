@@ -5,6 +5,7 @@
 - [x] **Phase 1: Foundation** - FastAPI project, darts TimesFM model serving (Complete ✓)
 - [x] **Phase 2: Prediction Pipeline** - CSV parsing, TimesFM inference, configuration (Complete ✓)
 - [x] **Phase 3: Frontend** - Upload UI, visualization, metrics, export (Complete ✓)
+- [ ] **Phase 3.2: Frontend Test Infrastructure** - Test framework, unit tests, CI/CD (INSERTED)
 - [ ] **Phase 4: Docker & Integration** - Containerized deployment with GPU support
 
 ## Phase Details
@@ -111,6 +112,33 @@ Plans:
 
 ---
 
+### Phase 3.2: Frontend Test Infrastructure (INSERTED)
+
+**Goal**: Add test infrastructure to Phase 3 frontend — test framework, unit tests, reference dataset, CI/CD
+
+**Depends on**: Phase 3
+
+**Requirements**: TEST-01, TEST-02, TEST-03, TEST-04, TEST-05, TEST-06, TEST-07, TEST-08, TEST-09, TEST-10
+
+**Success Criteria** (what must be TRUE):
+1. vitest, @testing-library/react, @playwright/test installed
+2. `npm test` runs unit tests and exits 0
+3. `npm run test:e2e` runs Playwright tests and exits 0
+4. Unit tests exist for Upload, Chart, Metrics, Export components
+5. Reference dataset exists in tests/fixtures/ (sample.csv, large_50k.csv, multi_column.csv)
+6. GitHub Actions workflow runs tests on PR
+
+**Plans**: 1 plan in 4 waves
+
+**Status**: Planned
+
+Plans:
+- [ ] 03.2-01-PLAN.md — Test Infrastructure Setup (vitest, unit tests, E2E, CI/CD)
+
+**UI hint**: no
+
+---
+
 ### Phase 4: Docker & Integration
 
 **Goal**: Containerized deployment and end-to-end validation
@@ -138,6 +166,7 @@ Plans:
 | 1. Foundation | 3/3 | Complete | 2026-04-24 |
 | 2. Prediction Pipeline | 4/4 | Complete | 2026-04-28 |
 | 3. Frontend | 3/3 | Complete | 2026-04-28 |
+| 3.2. Frontend Test Infra | 0/1 | Planned | - |
 | 4. Docker & Integration | 0/4 | Not started | - |
 
 ---

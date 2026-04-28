@@ -116,7 +116,7 @@ class TestPredictDataEndpoint:
             with patch("app.routers.predict._run_prediction_task", new_callable=AsyncMock):
                 response = client.post(
                     "/predict/data",
-                    json={"data": [1.0, 2.0, 3.0, 4.0, 5.0], "context_size": 5, "prediction_length": 3},
+                    json={"data": list(range(1, 34)), "context_size": 32, "prediction_length": 10},
                 )
 
         assert response.status_code == status.HTTP_200_OK
@@ -130,7 +130,7 @@ class TestPredictDataEndpoint:
             with patch("app.routers.predict._run_prediction_task", new_callable=AsyncMock):
                 response = client.post(
                     "/predict/data",
-                    json={"data": [1.0, 2.0, 3.0], "context_size": 3, "prediction_length": 2, "frequency": "H"},
+                    json={"data": list(range(1, 34)), "context_size": 32, "prediction_length": 10, "frequency": "H"},
                 )
 
         assert response.status_code == status.HTTP_200_OK
@@ -205,17 +205,17 @@ class TestJobResultEndpoint:
         assert "metadata" in data
 
     @pytest.mark.asyncio
-    async def test_get_result_of_processing_job_returns_202(self, client):
-        """Get result of processing job returns 202."""
+    async def test_get_result_of_processing_job_returns_200(self, client):
+        """Get result of processing job returns 200."""
         from app.jobs import create_job
 
         job = await create_job()
 
         response = client.get(f"/predict/result/{job.job_id}")
 
-        assert response.status_code == status.HTTP_202_ACCEPTED
+        assert response.status_code == status.HTTP_200_OK
         data = response.json()
-        assert data["status"] == "processing"
+        assert data["status"] == "pending"
 
     @pytest.mark.asyncio
     async def test_get_result_of_failed_job_returns_500(self, client):

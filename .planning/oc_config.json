@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "presets": {
+      "genius": {
+        "planning": "kimi-for-coding/k2p6",
+        "execution": "minimax-coding-plan/MiniMax-M2.7-highspeed",
+        "verification": "kimi-for-coding/k2p6"
+      }
+    }
+  },
+  "current_oc_profile": "genius"
+}
