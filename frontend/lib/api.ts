@@ -1,6 +1,6 @@
 import { PredictionConfig, JobResponse, JobStatusResponse, JobResultResponse } from "@/lib/types";
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 
 export async function uploadFile(
   file: File,

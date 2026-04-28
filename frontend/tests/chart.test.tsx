@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { Chart } from '@/components/chart';
 
 // Mock D3 to prevent actual SVG rendering in tests
@@ -98,9 +98,10 @@ describe('Chart', () => {
     render(<Chart data={mockData} viewMode="both" />);
 
     const historicalButton = screen.getByRole('button', { name: /historical/i });
-    historicalButton.click();
+    await act(async () => {
+      historicalButton.click();
+    });
 
-    // After clicking, the historical button should still exist
     expect(screen.getByRole('button', { name: /historical/i })).toBeInTheDocument();
   });
 

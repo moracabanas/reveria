@@ -10,13 +10,14 @@ jobs:
   test:
     name: Unit Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@e331126f8e82f9994c3ab644b9c1e1c5a5f6abd9
         with:
           node-version: '20'
           cache: 'npm'
@@ -28,21 +29,23 @@ jobs:
         run: npm run test:run
 
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@9ebc9b000f2e0fd3e2c5a6e6f6f7f0f9d7b5c6a8
         with:
           name: coverage
-          path: frontend/coverage/
+          path: coverage/
 
   e2e:
     name: E2E Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: test
     defaults:
       run:
         working-directory: frontend
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@a81bbbf8298c0fa03ea29cdc473d45769f953675
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@e331126f8e82f9994c3ab644b9c1e1c5a5f6abd9
         with:
           node-version: '20'
           cache: 'npm'
