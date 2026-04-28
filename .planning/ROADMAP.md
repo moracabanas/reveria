@@ -64,7 +64,15 @@ Plans:
 8. User sees current prediction configuration summary
 9. Configuration changes trigger prediction re-run automatically
 
-**Plans**: TBD
+**Plans**: 4 plans in 3 waves
+
+**Status**: Planned
+
+Plans:
+- [ ] 02-01-PLAN.md — CSV Processing & Validation (encoding, delimiter, header detection, column selection)
+- [ ] 02-02-PLAN.md — Async Job Manager (in-memory job store with status tracking)
+- [ ] 02-03-PLAN.md — Prediction Service (normalization, model integration, denormalization)
+- [ ] 02-04-PLAN.md — Prediction API Endpoints (multipart upload, async jobs, result polling)
 
 **UI hint**: no
 
@@ -121,7 +129,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-04-24 |
-| 2. Prediction Pipeline | 0/9 | Not started | - |
+| 2. Prediction Pipeline | 0/4 | Planned | - |
 | 3. Frontend | 0/10 | Not started | - |
 | 4. Docker & Integration | 0/4 | Not started | - |
 
