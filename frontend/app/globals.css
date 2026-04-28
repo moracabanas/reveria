@@ -128,3 +128,28 @@
     @apply font-sans;
   }
 }
+
+/* Ensure chart SVG is responsive */
+.chart-container svg {
+  width: 100%;
+  height: auto;
+}
+
+/* Smooth transitions for chart elements */
+.chart-container path {
+  transition: stroke-width 0.2s ease;
+}
+
+/* Custom scrollbar for data tables if needed */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background-color: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
