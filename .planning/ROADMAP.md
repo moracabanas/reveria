@@ -98,7 +98,14 @@ Plans:
 9. User can download prediction results as CSV
 10. User can download chart as PNG/SVG image
 
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
+
+**Status**: Planned
+
+Plans:
+- [ ] 03-01-PLAN.md — Frontend Foundation + Upload (Next.js, shadcn/ui, API client, drag-and-drop upload)
+- [ ] 03-02-PLAN.md — D3.js Visualization (interactive chart, zoom/pan, overlay, toggle views)
+- [ ] 03-03-PLAN.md — Metrics, Export & Dashboard Polish (metrics panel, CSV/PNG/SVG export, config panel, responsive layout)
 
 **UI hint**: yes
 
@@ -130,7 +137,7 @@ Plans:
 |-------|----------------|--------|-----------|
 | 1. Foundation | 3/3 | Complete | 2026-04-24 |
 | 2. Prediction Pipeline | 0/4 | Planned | - |
-| 3. Frontend | 0/10 | Not started | - |
+| 3. Frontend | 0/3 | Planned | - |
 | 4. Docker & Integration | 0/4 | Not started | - |
 
 ---
