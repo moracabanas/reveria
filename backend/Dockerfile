@@ -12,12 +12,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Install uv
 RUN pip install --no-cache-dir uv
 
-# Copy project files
-COPY pyproject.toml ./
+# Copy full project
+COPY . .
 
-# Create venv and install dependencies
+# Install dependencies
 RUN uv venv && \
-    uv pip install -e "."
+    uv pip install torch pytorch-lightning --index https://download.pytorch.org/whl/cpu && \
+    uv pip install darts huggingface-hub safetensors fastapi uvicorn python-multipart pandas numpy pydantic-settings
 
 # Runtime stage: Minimal image with only runtime dependencies
 FROM python:3.12-slim
