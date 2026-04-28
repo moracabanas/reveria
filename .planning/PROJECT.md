@@ -1,68 +1,63 @@
 # Reverso Signal Dashboard
 
-## What This Is
+## Current State
 
-A web dashboard for uploading time series CSV signals and generating predictions using the Reverso foundation model. Users upload CSV files, configure prediction parameters (context size, prediction length, frequency), and visualize forecast results with interactive D3.js charts. Designed for data scientists and analysts working with large-scale time series data (50K+ points).
+**v0.1** — First prototype shipped (2026-04-28)
 
-## Core Value
+### What's Working
 
-Upload any time series CSV and get a Reverso-powered forecast in seconds with full control over prediction parameters.
+- FastAPI backend with darts/TimesFM2p5Model inference
+- CSV upload with auto-detection (encoding, delimiter, header)
+- Async job management with status polling
+- D3.js interactive chart with zoom/pan (50K+ points)
+- Next.js frontend with shadcn/ui
+- Docker Compose deployment (backend + frontend)
+- vitest + Playwright test infrastructure
 
-## Requirements
+### Running
 
-### Validated
-
-- ✓ Reverso model integration via FastAPI microservice — Phase 1: MODEL-01, MODEL-02
-
-### Active
-
-- [ ] CSV upload with flexible column mapping (auto-detect legend or manual column selection)
-- [ ] Interactive D3.js visualization with zoom/pan and comparison overlays
-- [ ] Configurable prediction parameters: context size, prediction length, frequency
-- [ ] Prediction time display for performance benchmarking
-- [ ] Basic metrics (MAE/MSE) when actual values are available for comparison
-- [ ] Docker-ready deployment for FastAPI service and frontend
-
-### Out of Scope
-
-- Model training or fine-tuning — zero-shot forecasting only
-- Real-time streaming predictions — batch upload only
-- Multi-user authentication — single user local tool
-- Cloud hosting infrastructure — Docker for local/remote deployment
-
-## Context
-
-**Foundation Models (via darts):**
-- darts library provides unified API for multiple foundation models
-- **TimesFM2p5Model** (Google) — primary model, CPU-friendly, zero-shot
-- **Chronos2Model** (Amazon) — available as alternative
-- Reverso to be added later via darts
-- All models: no training required, zero-shot forecasting
-
-**CSV Handling:**
-- Mixed signal types (financial, sensor, energy, etc.)
-- Files may include data legend headers or require manual column mapping
-- Support for large files (50K+ data points)
-
-## Constraints
-
-- **Tech Stack**: shadcn frontend, FastAPI backend, uv for Python dependencies — as specified
-- **CPU-Only**: Reverso inference runs on CPU (GPU support optional for future)
-- **Scale**: Must handle 50K+ point signals efficiently
-- **Language**: Implementation in English, user communicates in Spanish
-
-## Key Decisions
-
-| Decision | Rationale | Outcome |
-|----------|-----------|---------|
-| D3.js for visualization | Balanced interactivity and dev complexity per user request | — Pending |
-| Docker-ready architecture | FastAPI + frontend containerized for easy deployment | — Pending |
-| Zero-shot only | Reverso is foundation model — no training needed | — Pending |
-| Large dataset support | User works with 50K+ point signals | — Pending |
-| Manual column mapping fallback | CSV formats vary — can't always auto-detect | — Pending |
-| CPU-only inference | Reverso runs on CPU with graceful fallback | ✓ Validated in Phase 1 |
-| Reverso on Hugging Face | shinfxh/reverso has checkpoints available | ✓ Verified |
+```bash
+docker compose up -d
+# Frontend: http://localhost:3000
+# Backend: http://localhost:8000
+# API Docs: http://localhost:8000/docs
+```
 
 ---
 
-*Last updated: 2026-04-24 after Phase 1 completion*
+## Requirements
+
+### Validated (v0.1)
+
+- CSV upload with flexible column mapping
+- Interactive D3.js visualization with zoom/pan
+- Configurable prediction parameters
+- Prediction time display
+- Basic metrics (MAE/MSE)
+- Docker deployment
+
+### Out of Scope
+
+- Model training or fine-tuning — zero-shot only
+- Real-time streaming — batch upload only
+- Multi-user authentication — single user tool
+- Cloud hosting — Docker for local/remote
+
+---
+
+## Architecture
+
+- **Backend**: FastAPI + darts (TimesFM2p5Model)
+- **Frontend**: Next.js 15 + shadcn/ui + D3.js
+- **Container**: Docker Compose (nginx reverse proxy)
+- **Tests**: vitest (unit) + Playwright (E2E)
+
+---
+
+## Next Milestone
+
+See `/gsd-new-milestone` to plan v0.2
+
+---
+
+*Last updated: 2026-04-28*
