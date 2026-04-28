@@ -35,6 +35,16 @@ Plans:
 
 ---
 
+### Phase 01.1: Switch to darts TimesFM (INSERTED)
+
+**Goal:** [Urgent work - to be planned]
+**Requirements**: TBD
+**Depends on:** Phase 1
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd-plan-phase 01.1 to break down)
+
 ### Phase 2: Prediction Pipeline
 
 **Goal**: End-to-end prediction pipeline with CSV handling, Reverso inference, and configuration

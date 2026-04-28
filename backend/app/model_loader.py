@@ -1,218 +1,194 @@
-"""NeuralForecast model serving layer for time series forecasting.
+"""Darts model serving layer with TimesFM2p5Model.
 
-This module provides model loading infrastructure using NeuralForecast -
-neural network models for time series forecasting (NBEATS, NHITS, etc.)
+This module provides model loading infrastructure using the darts library's
+foundation model API. TimesFM2p5Model from Google is CPU-friendly and provides
+zero-shot forecasting without requiring training.
 
-Models available (require torch):
-- NBEATS: Neural Basis Expansion Analysis
-- NHITS: Neural Hierarchical Interpolation for Time Series
-- TFT: Temporal Fusion Transformer
-- RNN, LSTM, GRU: Recurrent networks
-- And more...
+The darts library provides a unified API for multiple foundation models
+(TimesFM, Chronos, with Reverso later), making it easy to swap models.
 """
 
 import logging
 from typing import Optional
 
+import numpy as np
+import pandas as pd
+
 logger = logging.getLogger(__name__)
 
-NEURALFORECAST_AVAILABLE = False
+# Try to import darts components
+DARTS_AVAILABLE = False
 try:
-    from neuralforecast import NeuralForecast
-    from neuralforecast.models import NHITS, NBEATS
-    NEURALFORECAST_AVAILABLE = True
-    logger.info("NeuralForecast available")
+    from darts.models import TimesFM2p5Model
+    from darts import TimeSeries
+    DARTS_AVAILABLE = True
+    logger.info("Darts with TimesFM available")
 except ImportError as e:
-    NeuralForecast = None
-    NHITS = None
-    NBEATS = None
-    neuralforecast_import_error = e
+    DARTS_AVAILABLE = False
+    darts_import_error = e
+    TimesFM2p5Model = None
+    TimeSeries = None
     logger.warning(
-        f"NeuralForecast not available: {e}. "
-        "Install with: pip install neuralforecast"
+        f"Darts not available: {e}. "
+        "Install with: pip install darts"
     )
 
 
 class ForecastingModel:
-    """NeuralForecast model wrapper.
+    """TimesFM2p5Model wrapper using darts unified API.
 
-    Provides zero-shot or quick-training forecasting using neural networks.
+    This class provides a simplified interface to Google's TimesFM 2.5 model
+    through the darts library. It handles model loading and prediction.
 
     Attributes:
-        model_type: Type of neural model to use
-        input_size: Lookback window size
-        horizon: Forecast horizon (prediction length)
-        model: The underlying neuralforecast model instance
-        fitted_model: The fitted model after calling fit()
+        input_chunk_length: Number of time steps in the past for model input
+        output_chunk_length: Number of time steps predicted at once
+        model: The underlying darts TimesFM2p5Model instance (or None if not loaded)
     """
 
     def __init__(
         self,
-        model_type: str = "nhits",
-        input_size: int = 64,
-        horizon: int = 32,
+        input_chunk_length: int = 64,
+        output_chunk_length: int = 32,
     ):
-        """Initialize the forecasting model.
+        """Initialize the ForecastingModel with TimesFM2p5Model.
 
         Args:
-            model_type: Type of neural model to use.
-                Options: "nhits", "nbeats"
-            input_size: Number of past time steps as model input
-            horizon: Number of future steps to forecast
+            input_chunk_length: Number of past time steps as model input.
+                Must be <= 16384 (TimesFM context limit).
+            output_chunk_length: Number of future time steps predicted at once.
+                Must be <= 128 (TimesFM output patch size).
         """
-        self.model_type = model_type.lower()
-        self.input_size = input_size
-        self.horizon = horizon
+        self.input_chunk_length = input_chunk_length
+        self.output_chunk_length = output_chunk_length
         self.model = None
-        self.fitted_model = None
-        self._nf_model = None
+        self._training_series = None
 
-        if not NEURALFORECAST_AVAILABLE:
-            logger.warning("NeuralForecast not available - model will be stub")
+        logger.info(
+            f"ForecastingModel initialized: input_chunk={input_chunk_length}, "
+            f"output_chunk={output_chunk_length}"
+        )
+
+    def load(self) -> None:
+        """Load the TimesFM2p5Model from darts.
+
+        For foundation models like TimesFM, the model checkpoint is automatically
+        downloaded from HuggingFace on first use. This method initializes the
+        model but doesn't require explicit loading since darts handles it lazily.
+
+        Raises:
+            RuntimeError: If model loading fails
+        """
+        if not DARTS_AVAILABLE:
+            logger.warning(
+                "Darts not available - cannot load TimesFM2p5Model. "
+                f"Error: {darts_import_error}"
+            )
+            self.model = None
             return
 
         try:
-            self._nf_model = self._create_model()
-            logger.info(f"ForecastingModel initialized: type={model_type}, input={input_size}, horizon={horizon}")
+            logger.info("Loading TimesFM2p5Model via darts...")
+            self.model = TimesFM2p5Model(
+                input_chunk_length=self.input_chunk_length,
+                output_chunk_length=self.output_chunk_length,
+            )
+            logger.info("TimesFM2p5Model loaded successfully")
         except Exception as e:
-            logger.error(f"Failed to initialize model: {e}")
-            self._nf_model = None
-
-    def _create_model(self):
-        """Create the underlying neuralforecast model."""
-        if self.model_type == "nhits":
-            return NHITS(
-                input_size=self.input_size,
-                h=self.horizon,
-                max_steps=100,
-                enable_progress_bar=False,
-            )
-        elif self.model_type == "nbeats":
-            return NBEATS(
-                input_size=self.input_size,
-                h=self.horizon,
-                max_steps=100,
-                enable_progress_bar=False,
-            )
-        else:
-            logger.warning(f"Unknown model type '{self.model_type}', defaulting to NHITS")
-            return NHITS(
-                input_size=self.input_size,
-                h=self.horizon,
-                max_steps=100,
-                enable_progress_bar=False,
-            )
-
-    def load(self) -> None:
-        """Load and initialize the model."""
-        if not NEURALFORECAST_AVAILABLE:
-            logger.warning("NeuralForecast not available")
+            logger.error(f"Failed to load TimesFM2p5Model: {e}")
             self.model = None
-            return
-        self.model = self._nf_model
-        logger.info(f"Model loaded: {self.model_type}")
+            raise RuntimeError(f"Failed to load TimesFM2p5Model: {e}") from e
 
-    def fit(self, input_series, **kwargs) -> None:
+    def fit(self, input_series: np.ndarray) -> None:
         """Fit the model on the input time series.
 
+        TimesFM is a foundation model that performs zero-shot forecasting,
+        but darts requires calling fit() to prepare the model for prediction.
+
         Args:
-            input_series: pandas DataFrame with columns [unique_id, ds, y]
-                or numpy array of values
-            **kwargs: Additional arguments for fit()
+            input_series: numpy array or pandas Series of time series values
 
         Raises:
             RuntimeError: If fitting fails
         """
-        if not NEURALFORECAST_AVAILABLE:
-            raise RuntimeError("NeuralForecast not available - cannot fit model")
+        if not DARTS_AVAILABLE:
+            raise RuntimeError("Darts not available - cannot fit model")
 
-        if self._nf_model is None:
-            raise RuntimeError("Model not initialized")
+        if self.model is None:
+            self.load()
 
         try:
-            import pandas as pd
-
-            if isinstance(input_series, dict):
-                df = pd.DataFrame(input_series)
-            elif hasattr(input_series, 'to_dict'):
-                df = pd.DataFrame(input_series.to_dict())
+            # Convert to darts TimeSeries
+            if isinstance(input_series, np.ndarray):
+                series = TimeSeries.from_values(input_series)
+            elif isinstance(input_series, pd.Series):
+                series = TimeSeries.from_series(input_series)
             else:
-                n = len(input_series)
-                df = pd.DataFrame({
-                    "ds": pd.date_range(start="2020-01-01", periods=n, freq="h"),
-                    "y": input_series,
-                    "unique_id": "series1"
-                })
+                series = input_series  # Assume already a TimeSeries
 
-            logger.info(f"Fitting {self.model_type} on series of length {len(df)}")
-
-            nf = NeuralForecast(
-                models=[self._nf_model],
-                freq="h",
-            )
-            nf.fit(df=df, **kwargs)
-
-            self.fitted_model = nf
+            logger.info(f"Fitting TimesFM2p5Model on series of length {len(input_series)}")
+            self.model.fit(series)
+            self._training_series = series
             logger.info("Model fit completed")
-
         except Exception as e:
             logger.error(f"Failed to fit model: {e}")
             raise RuntimeError(f"Failed to fit model: {e}") from e
 
-    def predict(self, n: Optional[int] = None) -> dict:
-        """Generate predictions.
+    def predict(self, n: int) -> dict:
+        """Generate predictions for n future time steps.
 
         Args:
-            n: Number of future steps (overrides horizon if provided)
+            n: Number of future time steps to predict
 
         Returns:
-            Dictionary with forecast array and metadata
+            Dictionary with forecast array
 
         Raises:
-            RuntimeError: If prediction fails or model not fitted
+            RuntimeError: If prediction fails
         """
-        if self.fitted_model is None:
-            raise RuntimeError("Model not fitted - call fit() first")
-
-        horizon = n if n is not None else self.horizon
+        if self.model is None:
+            raise RuntimeError("Model not loaded - call load() or fit() first")
 
         try:
-            logger.info(f"Generating {horizon} predictions...")
-            pred_df = self.fitted_model.predict(h=horizon)
-
-            pred_values = pred_df["NHITS"].values if "NHITS" in pred_df.columns else pred_df.iloc[:, 0].values
-
+            logger.info(f"Generating {n} predictions...")
+            prediction = self.model.predict(n=n)
+            # Extract numpy values from prediction
+            pred_values = prediction.values().flatten()
+            
             result = {
                 "forecast": pred_values,
-                "horizon": horizon,
+                "prediction_length": n,
             }
-
+            
             logger.info(f"Prediction completed: shape={pred_values.shape}")
             return result
-
         except Exception as e:
             logger.error(f"Prediction failed: {e}")
             raise RuntimeError(f"Prediction failed: {e}") from e
 
 
 async def load_model(
-    model_type: str = "nhits",
-    input_size: int = 64,
-    horizon: int = 32,
+    input_chunk_length: int = 64,
+    output_chunk_length: int = 32,
 ) -> ForecastingModel:
-    """Load the forecasting model during FastAPI startup.
+    """Load the TimesFM2p5Model during FastAPI startup.
 
     Args:
-        model_type: Type of neural model to use
-        input_size: Lookback window size
-        horizon: Forecast horizon
+        input_chunk_length: Number of past time steps as model input
+        output_chunk_length: Number of future time steps predicted at once
 
     Returns:
         Loaded ForecastingModel instance
     """
-    logger.info(f"Loading NeuralForecast model (type={model_type})...")
+    logger.info(
+        f"Loading TimesFM2p5Model (input_chunk={input_chunk_length}, "
+        f"output_chunk={output_chunk_length})..."
+    )
 
-    model = ForecastingModel(model_type=model_type, input_size=input_size, horizon=horizon)
+    model = ForecastingModel(
+        input_chunk_length=input_chunk_length,
+        output_chunk_length=output_chunk_length,
+    )
     model.load()
 
     return model

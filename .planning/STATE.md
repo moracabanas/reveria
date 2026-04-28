@@ -41,6 +41,10 @@ progress:
 
 ## Accumulated Context
 
+### Roadmap Evolution
+
+- Phase 01.1 inserted after Phase 1: Switch to darts TimesFM (URGENT)
+
 ### Decisions
 
 - **Phase Structure**: 4 phases derived from requirements (coarse granularity)
