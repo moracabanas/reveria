@@ -114,7 +114,10 @@ A web dashboard for uploading time series CSV signals and generating predictions
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
 ## Conventions
 
-Conventions not yet established. Will populate as patterns emerge during development.
+### Python Package Management
+- **Always use `uv add` instead of `pip install`** for any Python dependency command
+- Run from `backend/` directory: `uv add <package>` or `uv add --dev <package>`
+- Never use bare `pip install` — always prefix with `uv`
 <!-- GSD:conventions-end -->
 
 <!-- GSD:architecture-start source:ARCHITECTURE.md -->
