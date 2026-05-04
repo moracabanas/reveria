@@ -13,6 +13,8 @@ export interface ChartData {
     prediction_length: number;
     context_size: number;
     frequency: string;
+    original_length: number;
+    window_size: number;
   } | null;
 }
 

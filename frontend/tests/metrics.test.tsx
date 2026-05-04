@@ -20,6 +20,8 @@ describe('MetricsPanel', () => {
       prediction_length: 100,
       context_size: 512,
       frequency: '1min',
+      original_length: 50000,
+      window_size: 1000,
     },
   };
 
@@ -38,9 +40,10 @@ describe('MetricsPanel', () => {
     expect(screen.getByText(/1500 ms/i)).toBeInTheDocument();
   });
 
-  it('displays signal length', () => {
+  it('displays window size and total signal', () => {
     render(<MetricsPanel data={mockData} />);
-    expect(screen.getByText(/50,000/i)).toBeInTheDocument();
+    expect(screen.getByText(/1,000 pts/i)).toBeInTheDocument();
+    expect(screen.getByText(/50,000 pts/i)).toBeInTheDocument();
   });
 
   it('displays prediction length', () => {

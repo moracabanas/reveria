@@ -49,8 +49,13 @@ export function MetricsPanel({ data }: MetricsPanelProps) {
       icon: Clock,
     },
     {
-      label: "Signal Length",
-      value: `${metadata.input_points.toLocaleString()} points`,
+      label: "Window Size",
+      value: `${metadata.window_size.toLocaleString()} pts`,
+      icon: BarChart3,
+    },
+    {
+      label: "Total Signal",
+      value: `${metadata.original_length.toLocaleString()} pts`,
       icon: BarChart3,
     },
     {

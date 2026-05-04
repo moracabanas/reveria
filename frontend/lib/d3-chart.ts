@@ -88,7 +88,6 @@ export function renderChart(
       .attr("d", line);
   }
 
-  // Prediction line (orange #f97316)
   if (viewMode === "both" || viewMode === "prediction") {
     chartArea
       .append("path")
@@ -96,11 +95,10 @@ export function renderChart(
       .attr("fill", "none")
       .attr("stroke", "#f97316")
       .attr("stroke-width", 2)
-      .attr("stroke-dasharray", viewMode === "prediction" ? "none" : "5,5")
+      .attr("stroke-dasharray", "1,3")
       .attr("d", line);
   }
 
-  // Boundary line (between historical and prediction)
   if (
     viewMode === "both" &&
     data.historical.length > 0 &&
@@ -116,6 +114,19 @@ export function renderChart(
       .attr("stroke", "#6b7280")
       .attr("stroke-width", 1)
       .attr("stroke-dasharray", "4,4");
+  }
+
+  if (viewMode === "both" && data.metadata && data.metadata.context_size < data.metadata.window_size) {
+    const contextStartX = xScale(data.metadata.input_points - data.metadata.context_size);
+    chartArea
+      .append("line")
+      .attr("x1", contextStartX)
+      .attr("x2", contextStartX)
+      .attr("y1", 0)
+      .attr("y2", innerHeight)
+      .attr("stroke", "#94a3b8")
+      .attr("stroke-width", 0.5)
+      .attr("stroke-dasharray", "2,6");
   }
 
   // Axes
@@ -135,7 +146,17 @@ export function renderChart(
     .attr("opacity", 0.1)
     .call(d3.axisLeft(yScale).tickSize(-innerWidth).tickFormat(() => ""));
 
-  // Zoom behavior
+  if (data.metadata && data.metadata.original_length > data.metadata.window_size) {
+    const infoText = `Showing last ${data.metadata.window_size.toLocaleString()} of ${data.metadata.original_length.toLocaleString()} points`;
+    g.append("text")
+      .attr("x", innerWidth)
+      .attr("y", -margin.top / 2 + 5)
+      .attr("text-anchor", "end")
+      .attr("fill", "#6b7280")
+      .attr("font-size", "11px")
+      .text(infoText);
+  }
+
   const zoom = d3
     .zoom<SVGSVGElement, unknown>()
     .scaleExtent([1, 50])
@@ -147,13 +168,17 @@ export function renderChart(
       const newXScale = event.transform.rescaleX(xScale);
       g.select(".x-axis").call(d3.axisBottom(newXScale).ticks(5) as any);
       const zoomedLine = line.x((d: DataPoint) => newXScale(d.index));
-      chartArea
-        .selectAll("path")
-        .attr("d", zoomedLine as any);
+      chartArea.selectAll("path").attr("d", zoomedLine as any);
       chartArea
         .selectAll("line[stroke-dasharray='4,4']")
         .attr("x1", newXScale(data.metadata?.input_points || data.historical.length))
         .attr("x2", newXScale(data.metadata?.input_points || data.historical.length));
+      if (data.metadata && data.metadata.context_size < data.metadata.window_size) {
+        chartArea
+          .selectAll("line[stroke-dasharray='2,6']")
+          .attr("x1", newXScale(data.metadata.input_points - data.metadata.context_size))
+          .attr("x2", newXScale(data.metadata.input_points - data.metadata.context_size));
+      }
     });
 
   svg.call(zoom as any);
