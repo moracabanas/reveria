@@ -55,7 +55,7 @@ describe("buildChartData", () => {
     ]);
   });
 
-  it("uses absolute indices for historical and prediction", () => {
+  it("uses contiguous indices for historical and prediction", () => {
     const originalData = Array.from({ length: 50 }, (_, i) => i + 1);
     const forecast = [51, 52, 53];
     const result = buildChartData(originalData, forecast, baseMetadata);
@@ -64,7 +64,7 @@ describe("buildChartData", () => {
     const firstPrediction = result.prediction[0];
 
     expect(lastHistorical.index).toBe(49);
-    expect(firstPrediction.index).toBe(baseMetadata.input_points);
+    expect(firstPrediction.index).toBe(lastHistorical.index + 1);
   });
 
   it("handles input_points greater than data length", () => {

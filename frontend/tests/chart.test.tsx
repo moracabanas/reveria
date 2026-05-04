@@ -1,8 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { Chart } from '@/components/chart';
 
-// Mock D3 to prevent actual SVG rendering in tests
 vi.mock('d3', async () => {
   const actual = await vi.importActual('d3');
   return {
@@ -51,7 +50,6 @@ vi.mock('d3', async () => {
   };
 });
 
-// Mock the d3-chart lib
 vi.mock('@/lib/d3-chart', () => ({
   renderChart: vi.fn(() => vi.fn()),
   clearChart: vi.fn(),
@@ -75,6 +73,8 @@ describe('Chart', () => {
       prediction_length: 2,
       context_size: 512,
       frequency: '1min',
+      original_length: 100,
+      window_size: 50,
     },
   };
 
@@ -87,22 +87,11 @@ describe('Chart', () => {
     expect(screen.getByText('Time Series Forecast')).toBeInTheDocument();
   });
 
-  it('renders view mode toggle buttons', () => {
+  it('renders without view mode toggle buttons', () => {
     render(<Chart data={mockData} />);
-    expect(screen.getByRole('button', { name: /both/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /historical/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /prediction/i })).toBeInTheDocument();
-  });
-
-  it('toggles view mode when buttons are clicked', async () => {
-    render(<Chart data={mockData} viewMode="both" />);
-
-    const historicalButton = screen.getByRole('button', { name: /historical/i });
-    await act(async () => {
-      historicalButton.click();
-    });
-
-    expect(screen.getByRole('button', { name: /historical/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /both/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /historical/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /prediction/i })).not.toBeInTheDocument();
   });
 
   it('handles empty prediction data gracefully', () => {

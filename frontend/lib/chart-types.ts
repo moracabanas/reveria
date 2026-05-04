@@ -18,4 +18,4 @@ export interface ChartData {
   } | null;
 }
 
-export type ViewMode = "both" | "historical" | "prediction";
+

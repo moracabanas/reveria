@@ -30,8 +30,9 @@ export function buildChartData(
       value,
     }));
 
+  const lastHistoricalIndex = historical[historical.length - 1]?.index ?? startIndex - 1;
   const prediction: DataPoint[] = forecast.map((value, i) => ({
-    index: inputPoints + i,
+    index: lastHistoricalIndex + 1 + i,
     value,
   }));
 
@@ -66,8 +67,9 @@ export function buildChartDataWithWindow(
       value,
     }));
 
+  const lastHistoricalIndex = historical[historical.length - 1]?.index ?? startIndex - 1;
   const prediction: DataPoint[] = forecast.map((value, i) => ({
-    index: metadata.input_points + i,
+    index: lastHistoricalIndex + 1 + i,
     value,
   }));
 
