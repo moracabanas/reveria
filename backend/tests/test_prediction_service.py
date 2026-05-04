@@ -1,10 +1,9 @@
 """Tests for prediction_service module.
 
 This test suite covers:
-- Normalization and denormalization
 - PredictionConfig validation
 - PredictionService integration with mocked model
-- End-to-end normalization roundtrip
+- End-to-end prediction flow
 """
 
 from unittest.mock import MagicMock
@@ -13,53 +12,11 @@ import numpy as np
 import pytest
 
 from app.prediction_service import (
-    Normalization,
     PredictionConfig,
     PredictionResult,
     PredictionService,
     run_prediction,
 )
-
-
-class TestNormalization:
-    """Tests for normalize/denormalize functions."""
-
-    def test_normalize_scales_to_01(self):
-        """normalize scales data to [0, 1] range."""
-        data = np.array([0.0, 50.0, 100.0])
-        normalized, params = Normalization.normalize(data)
-        assert np.min(normalized) == 0.0
-        assert np.max(normalized) == 1.0
-
-    def test_normalize_all_positive(self):
-        """normalize handles all-positive data correctly."""
-        data = np.array([10.0, 20.0, 30.0, 40.0])
-        normalized, params = Normalization.normalize(data)
-        assert np.min(normalized) == 0.0
-        assert np.max(normalized) == 1.0
-
-    def test_normalize_mixed_positive_negative(self):
-        """normalize handles mixed positive/negative data correctly."""
-        data = np.array([-50.0, 0.0, 50.0])
-        normalized, params = Normalization.normalize(data)
-        assert np.min(normalized) == 0.0
-        assert np.max(normalized) == 1.0
-        assert params["min"] == -50.0
-        assert params["max"] == 50.0
-
-    def test_normalize_identical_values(self):
-        """normalize handles identical values (edge case: division by zero)."""
-        data = np.array([42.0, 42.0, 42.0])
-        normalized, params = Normalization.normalize(data)
-        assert params["range"] == 1.0
-        assert np.min(normalized) == np.max(normalized)
-
-    def test_denormalize_reverses_normalize(self):
-        """denormalize reverses normalization exactly."""
-        original = np.array([0.0, 25.0, 50.0, 75.0, 100.0])
-        normalized, params = Normalization.normalize(original)
-        denormalized = Normalization.denormalize(normalized, params)
-        np.testing.assert_array_almost_equal(denormalized, original)
 
 
 class TestPredictionConfig:
@@ -99,7 +56,7 @@ class TestPredictionService:
         model = MagicMock()
 
         def mock_predict(n):
-            return {"forecast": np.linspace(0.5, 0.8, n), "prediction_length": n}
+            return {"forecast": np.linspace(1400, 1600, n), "prediction_length": n}
 
         model.predict = mock_predict
         model.fit = MagicMock()
@@ -167,30 +124,26 @@ class TestPredictionService:
         with pytest.raises(RuntimeError, match="Model not loaded"):
             await service.run_prediction(data, config)
 
-
-class TestEndToEndNormalization:
-    """Tests for end-to-end normalization roundtrip."""
-
     @pytest.mark.asyncio
-    async def test_normalize_denormalize_roundtrip(self):
-        """normalize -> denormalize preserves values within tolerance."""
-        original = np.array([10.0, 25.0, 50.0, 75.0, 100.0])
-        normalized, params = Normalization.normalize(original)
-        denormalized = Normalization.denormalize(normalized, params)
-        np.testing.assert_array_almost_equal(denormalized, original, decimal=10)
-
-    @pytest.mark.asyncio
-    async def test_forecast_in_original_scale(self):
-        """Predicted values are in original data scale (not [0,1])."""
-        mock_model = MagicMock()
-        mock_model.fit = MagicMock()
-        mock_model.predict = MagicMock(return_value={"forecast": np.array([0.6, 0.7, 0.8]), "prediction_length": 3})
-
+    async def test_run_prediction_passes_raw_data(self, mock_model):
+        """run_prediction passes raw sliced data to model without normalization."""
         service = PredictionService(mock_model)
-        data = np.array([0.0, 25.0, 50.0, 75.0, 100.0])
+        data = np.array([1000.0, 1500.0, 2000.0])
+        config = PredictionConfig(context_size=32, prediction_length=3)
+
+        await service.run_prediction(data, config)
+
+        call_arg = mock_model.fit.call_args[0][0]
+        np.testing.assert_array_equal(call_arg, data)
+
+    @pytest.mark.asyncio
+    async def test_forecast_in_realistic_scale(self, mock_model):
+        """Predicted values are in realistic scale matching input data range."""
+        service = PredictionService(mock_model)
+        data = np.array([1000.0, 1500.0, 2000.0])
         config = PredictionConfig(context_size=32, prediction_length=3)
 
         result = await service.run_prediction(data, config)
 
-        assert result.forecast.min() >= 0.0
-        assert result.forecast.max() <= 100.0
+        assert result.forecast.min() >= 1000.0
+        assert result.forecast.max() <= 2000.0

@@ -1,13 +1,12 @@
 """Prediction service for time series forecasting.
 
-Handles normalization, model inference, and output denormalization
-with configurable parameters.
+Handles model inference with configurable parameters.
+TimesFM2p5Model handles scaling internally — no manual normalization needed.
 """
 
 import logging
 import time
 from dataclasses import dataclass
-from typing import Optional, Tuple
 
 import numpy as np
 
@@ -39,33 +38,8 @@ class PredictionResult:
     metadata: dict
 
 
-class Normalization:
-    """Handles min-max normalization and denormalization."""
-
-    @staticmethod
-    def normalize(data: np.ndarray) -> Tuple[np.ndarray, dict]:
-        min_val = float(np.min(data))
-        max_val = float(np.max(data))
-
-        if max_val == min_val:
-            range_val = 1.0
-        else:
-            range_val = max_val - min_val
-
-        normalized = (data - min_val) / range_val
-
-        params = {"min": min_val, "max": max_val, "range": range_val}
-        return normalized, params
-
-    @staticmethod
-    def denormalize(normalized: np.ndarray, params: dict) -> np.ndarray:
-        range_val = params["range"]
-        min_val = params["min"]
-        return normalized * range_val + min_val
-
-
 class PredictionService:
-    """Orchestrates prediction: normalize -> fit -> predict -> denormalize."""
+    """Orchestrates prediction: slice -> fit -> predict -> return."""
 
     def __init__(self, model: ForecastingModel):
         self.model = model
@@ -81,14 +55,10 @@ class PredictionService:
         context_size = min(config.context_size, len(data))
         sliced_data = data[-context_size:]
 
-        normalized, norm_params = Normalization.normalize(sliced_data)
-
-        self.model.fit(normalized)
+        self.model.fit(sliced_data)
 
         pred_result = self.model.predict(n=config.prediction_length)
         forecast = pred_result["forecast"]
-
-        denormalized = Normalization.denormalize(forecast, norm_params)
 
         elapsed = time.perf_counter() - start_time
 
@@ -101,7 +71,7 @@ class PredictionService:
             "frequency": config.frequency,
         }
 
-        return PredictionResult(forecast=denormalized, metadata=metadata)
+        return PredictionResult(forecast=forecast, metadata=metadata)
 
 
 async def run_prediction(
