@@ -1,4 +1,4 @@
-import { PredictionConfig, JobResponse, JobStatusResponse, JobResultResponse } from "@/lib/types";
+import { PredictionConfig, JobResponse, JobStatusResponse, JobResultResponse, JobSummaryResponse, OriginalDataResponse, ReapplyRequest } from "@/lib/types";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 
@@ -36,5 +36,35 @@ export async function getJobStatus(jobId: string): Promise<JobStatusResponse> {
 export async function getJobResult(jobId: string): Promise<JobResultResponse> {
   const response = await fetch(`${BACKEND_URL}/predict/result/${jobId}`);
   if (!response.ok) throw new Error("Failed to get job result");
+  return response.json();
+}
+
+export async function getJobList(): Promise<JobSummaryResponse[]> {
+  const response = await fetch(`${BACKEND_URL}/predict/jobs`);
+  if (!response.ok) throw new Error("Failed to fetch job list");
+  return response.json();
+}
+
+export async function reapplyJob(
+  jobId: string,
+  config: ReapplyRequest
+): Promise<JobResponse> {
+  const response = await fetch(`${BACKEND_URL}/predict/reapply/${jobId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(config),
+  });
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Reapply failed: ${error}`);
+  }
+  return response.json();
+}
+
+export async function getJobOriginalData(
+  jobId: string
+): Promise<OriginalDataResponse> {
+  const response = await fetch(`${BACKEND_URL}/predict/data/${jobId}`);
+  if (!response.ok) throw new Error("Failed to fetch original data");
   return response.json();
 }

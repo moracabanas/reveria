@@ -9,7 +9,7 @@ import { uploadFile } from "@/lib/api";
 import { PredictionConfig, JobResponse } from "@/lib/types";
 
 interface UploadProps {
-  onUploadComplete?: (job: JobResponse, data: number[]) => void;
+  onUploadComplete?: (job: JobResponse, data: number[], fileName?: string) => void;
   config?: PredictionConfig;
 }
 
@@ -55,7 +55,7 @@ export function UploadComponent({ onUploadComplete, config }: UploadProps) {
       const result = await uploadFile(file, config);
       setProgress(100);
       const parsedData = await parseCSVFile(file);
-      onUploadComplete?.(result, parsedData);
+      onUploadComplete?.(result, parsedData, file.name);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Upload failed");
     } finally {

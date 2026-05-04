@@ -10,11 +10,20 @@ import { PredictionConfig } from "@/lib/types";
 interface ConfigPanelProps {
   config: PredictionConfig;
   onConfigChange: (config: PredictionConfig) => void;
+  onReapply?: (config: PredictionConfig) => void;
+  hasActiveSignal?: boolean;
+  isReapplying?: boolean;
 }
 
 const FREQUENCY_OPTIONS = ["auto", "H", "D", "W", "M", "Q", "Y"];
 
-export function ConfigPanel({ config, onConfigChange }: ConfigPanelProps) {
+export function ConfigPanel({
+  config,
+  onConfigChange,
+  onReapply,
+  hasActiveSignal,
+  isReapplying,
+}: ConfigPanelProps) {
   const [localConfig, setLocalConfig] = useState<PredictionConfig>(config);
 
   const handleChange = useCallback(
@@ -26,8 +35,12 @@ export function ConfigPanel({ config, onConfigChange }: ConfigPanelProps) {
   );
 
   const handleApply = useCallback(() => {
-    onConfigChange(localConfig);
-  }, [localConfig, onConfigChange]);
+    if (hasActiveSignal && onReapply) {
+      onReapply(localConfig);
+    } else {
+      onConfigChange(localConfig);
+    }
+  }, [localConfig, onConfigChange, onReapply, hasActiveSignal]);
 
   const handleReset = useCallback(() => {
     const defaults: PredictionConfig = {
@@ -97,8 +110,17 @@ export function ConfigPanel({ config, onConfigChange }: ConfigPanelProps) {
         </div>
 
         <div className="flex gap-2 pt-2">
-          <Button onClick={handleApply} variant="default" className="flex-1">
-            Apply
+          <Button
+            onClick={handleApply}
+            variant="default"
+            className="flex-1"
+            disabled={isReapplying}
+          >
+            {isReapplying
+              ? "Running..."
+              : hasActiveSignal
+              ? "Apply Config"
+              : "Apply"}
           </Button>
           <Button onClick={handleReset} variant="outline" className="flex-1">
             Reset

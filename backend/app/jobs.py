@@ -30,6 +30,8 @@ class PredictionJob:
     result: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
     config: Optional[Dict[str, Any]] = None
+    signal_name: Optional[str] = None
+    original_data: Optional[List[float]] = field(default_factory=list)
 
 
 class JobStore:
@@ -39,7 +41,12 @@ class JobStore:
         self._jobs: Dict[str, PredictionJob] = {}
         self._lock = asyncio.Lock()
 
-    async def create_job(self, config: Optional[Dict[str, Any]] = None) -> PredictionJob:
+    async def create_job(
+        self,
+        config: Optional[Dict[str, Any]] = None,
+        signal_name: Optional[str] = None,
+        original_data: Optional[List[float]] = None,
+    ) -> PredictionJob:
         job_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
         job = PredictionJob(
@@ -48,6 +55,8 @@ class JobStore:
             created_at=now,
             updated_at=now,
             config=config,
+            signal_name=signal_name,
+            original_data=original_data or [],
         )
         async with self._lock:
             self._jobs[job_id] = job
@@ -93,9 +102,13 @@ def get_job_store() -> JobStore:
     return _job_store
 
 
-async def create_job(config: Optional[Dict[str, Any]] = None) -> PredictionJob:
+async def create_job(
+    config: Optional[Dict[str, Any]] = None,
+    signal_name: Optional[str] = None,
+    original_data: Optional[List[float]] = None,
+) -> PredictionJob:
     store = get_job_store()
-    return await store.create_job(config)
+    return await store.create_job(config=config, signal_name=signal_name, original_data=original_data)
 
 
 async def get_job(job_id: str) -> Optional[PredictionJob]:
