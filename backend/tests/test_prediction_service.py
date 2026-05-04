@@ -91,7 +91,7 @@ class TestPredictionService:
 
     @pytest.mark.asyncio
     async def test_run_prediction_uses_context_size(self, mock_model):
-        """run_prediction uses only last context_size points."""
+        """run_prediction uses at least model input_chunk_length points."""
         service = PredictionService(mock_model)
         data = np.linspace(0, 100, 1000)
         config = PredictionConfig(context_size=100, prediction_length=96)
@@ -100,7 +100,8 @@ class TestPredictionService:
 
         mock_model.fit.assert_called_once()
         call_arg = mock_model.fit.call_args[0][0]
-        assert len(call_arg) == 100
+        # Context is auto-adjusted to model's input_chunk_length (512)
+        assert len(call_arg) == 512
 
     @pytest.mark.asyncio
     async def test_run_prediction_short_input(self, mock_model):

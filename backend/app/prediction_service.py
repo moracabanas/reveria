@@ -52,6 +52,18 @@ class PredictionService:
         if self.model is None:
             raise RuntimeError("Model not loaded - cannot run prediction")
 
+        # Ensure context is at least as large as the model's input_chunk_length
+        # so the model can see enough history to capture periodic patterns
+        min_context = getattr(self.model, "input_chunk_length", 512)
+        if callable(min_context):
+            min_context = 512
+        if config.context_size < min_context:
+            logger.warning(
+                f"context_size ({config.context_size}) < model input_chunk_length ({min_context}). "
+                f"Using {min_context} to ensure model sees enough context."
+            )
+            config.context_size = min_context
+
         context_size = min(config.context_size, len(data))
         sliced_data = data[-context_size:]
 

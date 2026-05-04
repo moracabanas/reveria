@@ -48,8 +48,8 @@ class ForecastingModel:
 
     def __init__(
         self,
-        input_chunk_length: int = 64,
-        output_chunk_length: int = 32,
+        input_chunk_length: int = 512,
+        output_chunk_length: int = 128,
     ):
         """Initialize the ForecastingModel with TimesFM2p5Model.
 
@@ -168,8 +168,8 @@ class ForecastingModel:
 
 
 async def load_model(
-    input_chunk_length: int = 64,
-    output_chunk_length: int = 32,
+    input_chunk_length: int = 512,
+    output_chunk_length: int = 128,
 ) -> ForecastingModel:
     """Load the TimesFM2p5Model during FastAPI startup.
 
