@@ -100,8 +100,8 @@ class TestPredictionService:
 
         mock_model.fit.assert_called_once()
         call_arg = mock_model.fit.call_args[0][0]
-        # Context is auto-adjusted to model's input_chunk_length (512)
-        assert len(call_arg) == 512
+        # Context is auto-adjusted to input_chunk_length + output_chunk_length (640)
+        assert len(call_arg) == 640
 
     @pytest.mark.asyncio
     async def test_run_prediction_short_input(self, mock_model):

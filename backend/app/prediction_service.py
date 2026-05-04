@@ -52,11 +52,15 @@ class PredictionService:
         if self.model is None:
             raise RuntimeError("Model not loaded - cannot run prediction")
 
-        # Ensure context is at least as large as the model's input_chunk_length
-        # so the model can see enough history to capture periodic patterns
-        min_context = getattr(self.model, "input_chunk_length", 512)
-        if callable(min_context):
-            min_context = 512
+        # Ensure context is large enough for the model to extract training samples.
+        # darts requires series length >= input_chunk_length + output_chunk_length.
+        input_chunk = getattr(self.model, "input_chunk_length", 512)
+        output_chunk = getattr(self.model, "output_chunk_length", 128)
+        if callable(input_chunk):
+            input_chunk = 512
+        if callable(output_chunk):
+            output_chunk = 128
+        min_context = input_chunk + output_chunk
         if config.context_size < min_context:
             logger.warning(
                 f"context_size ({config.context_size}) < model input_chunk_length ({min_context}). "
